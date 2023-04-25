@@ -175,10 +175,34 @@ where
     /// # Arguments
     /// * `address` - Address where the first byte of the buf will be written.
     /// * `buf` - Slice of bytes that will be written.
-    pub fn write(&mut self, address: u32, buf: &[u8]) -> Result<(), Error<S, P>> {
+    pub fn write(&mut self, mut address: u32, mut buf: &[u8]) -> Result<(), Error<S, P>> {
         self.enable_write()?;
 
         if address + buf.len() as u32 >= Self::N_PAGES * Self::PAGE_SIZE {
+            return Err(Error::OutOfBounds);
+        }
+
+        // Write first chunk, taking into account that given addres might
+        // point to a location that is not on a page boundary,
+        let chunk_len = (Self::PAGE_SIZE - (address & 0x000000FF)) as usize;
+        let chunk_len = chunk_len.min(buf.len());
+        self.write_page(address, &buf[..chunk_len])?;
+
+        // Write rest of the chunks
+        let mut chunk_len = chunk_len;
+        while !buf.is_empty() {
+            buf = &buf[chunk_len..];
+            address += chunk_len as u32;
+            chunk_len = buf.len().min(Self::PAGE_SIZE as usize);
+            self.write_page(address, &buf[..chunk_len])?;
+        }
+
+        Ok(())
+    }
+
+    pub fn write_page(&mut self, address: u32, buf: &[u8]) -> Result<(), Error<S, P>> {
+        // We don't support wrapping writes. They're scary
+        if (address & 0x000000FF) + buf.len() as u32 >= Self::PAGE_SIZE {
             return Err(Error::OutOfBounds);
         }
 
