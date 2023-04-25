@@ -200,7 +200,7 @@ where
         Ok(())
     }
 
-    pub fn write_page(&mut self, address: u32, buf: &[u8]) -> Result<(), Error<S, P>> {
+    fn write_page(&mut self, address: u32, buf: &[u8]) -> Result<(), Error<S, P>> {
         // We don't support wrapping writes. They're scary
         if (address & 0x000000FF) + buf.len() as u32 >= Self::PAGE_SIZE {
             return Err(Error::OutOfBounds);
