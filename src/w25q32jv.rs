@@ -119,7 +119,7 @@ where
     /// Request the 64 bit id that is unique to this chip.
     pub fn device_id(&mut self) -> Result<[u8; 8], Error<S, P>> {
         let mut buf: [u8; 13] = [0; 13];
-        buf[0] = Command::DeviceID as u8;
+        buf[0] = Command::UniqueId as u8;
 
         self.cs.set_low().map_err(Error::PinError)?;
         self.spi.transfer(&mut buf).map_err(Error::SpiError)?;
@@ -142,7 +142,7 @@ where
 
         let address_bytes = address.to_be_bytes();
         let command_buf: [u8; 4] = [
-            Command::Read as u8,
+            Command::ReadData as u8,
             address_bytes[0],
             address_bytes[1],
             address_bytes[2],
@@ -184,7 +184,7 @@ where
 
         let address_bytes = address.to_be_bytes();
         let command_buf: [u8; 4] = [
-            Command::Write as u8,
+            Command::PageProgram as u8,
             address_bytes[0],
             address_bytes[1],
             address_bytes[2],
