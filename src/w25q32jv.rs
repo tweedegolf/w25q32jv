@@ -2,8 +2,9 @@ use super::*;
 use core::fmt::Debug;
 use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::OutputPin;
-use embedded_storage;
-use embedded_storage::nor_flash::{ReadNorFlash, NorFlash, NorFlashError, ErrorType, NorFlashErrorKind};
+use embedded_storage::nor_flash::{
+    ErrorType, NorFlash, NorFlashError, NorFlashErrorKind, ReadNorFlash,
+};
 
 impl<S, P> NorFlashError for Error<S, P>
 where
@@ -93,12 +94,7 @@ where
     const N_BLOCKS_64K: u32 = Self::N_BLOCKS_32K / 2;
 
     pub fn new(spi: SPI, cs: CS, hold: HOLD, wp: WP) -> Result<Self, Error<S, P>> {
-        let mut flash = W25q32jv {
-            spi,
-            cs,
-            hold,
-            wp,
-        };
+        let mut flash = W25q32jv { spi, cs, hold, wp };
 
         flash.cs.set_high().map_err(Error::PinError)?;
         flash.hold.set_high().map_err(Error::PinError)?;
@@ -112,7 +108,7 @@ where
     pub fn busy(&mut self) -> Result<bool, Error<S, P>> {
         let mut buf: [u8; 3] = [0; 3];
         buf[0] = Command::ReadStatusRegister1 as u8;
-        
+
         self.cs.set_low().map_err(Error::PinError)?;
         self.spi.transfer(&mut buf).map_err(Error::SpiError)?;
         self.cs.set_high().map_err(Error::PinError)?;
@@ -124,7 +120,7 @@ where
     pub fn device_id(&mut self) -> Result<[u8; 8], Error<S, P>> {
         let mut buf: [u8; 13] = [0; 13];
         buf[0] = Command::DeviceID as u8;
-        
+
         self.cs.set_low().map_err(Error::PinError)?;
         self.spi.transfer(&mut buf).map_err(Error::SpiError)?;
         self.cs.set_high().map_err(Error::PinError)?;
@@ -135,7 +131,7 @@ where
     /// Reads a chunk of bytes from the flash chip.
     /// The number of bytes read is equal to the length of the buf slice.
     /// The first byte is read from the provided address. This address is then incremented for each following byte.
-    /// 
+    ///
     /// # Arguments
     /// * `address` - Address where the first byte of the buf will be read.
     /// * `buf` - Slice that is going to be filled with the read bytes.
@@ -164,10 +160,10 @@ where
     /// Writes and erases to the chip only have effect when this flag is true.
     /// Each write and erase clears the flag, requiring it to be set to true again for the next command.
     fn enable_write(&mut self) -> Result<(), Error<S, P>> {
-        let mut command_buf: [u8; 1] = [Command::WriteEnable as u8];
+        let command_buf: [u8; 1] = [Command::WriteEnable as u8];
 
         self.cs.set_low().map_err(Error::PinError)?;
-        self.spi.write(&mut command_buf).map_err(Error::SpiError)?;
+        self.spi.write(&command_buf).map_err(Error::SpiError)?;
         self.cs.set_high().map_err(Error::PinError)?;
 
         Ok(())
@@ -175,7 +171,7 @@ where
 
     /// Writes a chunk of bytes to the flash chip.
     /// The first byte is written to the provided address. This address is then incremented for each following byte.
-    /// 
+    ///
     /// # Arguments
     /// * `address` - Address where the first byte of the buf will be written.
     /// * `buf` - Slice of bytes that will be written.
@@ -199,7 +195,7 @@ where
         self.spi.write(buf).map_err(Error::SpiError)?;
         self.cs.set_high().map_err(Error::PinError)?;
 
-        while self.busy().unwrap() == true {}
+        while self.busy().unwrap() {}
 
         Ok(())
     }
@@ -208,7 +204,7 @@ where
     /// If the range starts at SECTOR_SIZE * 3 then the erase starts at the fourth sector.
     /// All sectors are erased in the range [start_sector..end_sector].
     /// The start address may not be a higher value than the end address.
-    /// 
+    ///
     /// # Arguments
     /// * `start_address` - Address of the first byte of the start of the range of sectors that need to be erased.
     /// * `end_address` - Address of the first byte of the end of the range of sectors that need to be erased.
@@ -238,7 +234,7 @@ where
     }
 
     /// Erases a single sector of flash memory with the size of SECTOR_SIZE.
-    /// 
+    ///
     /// # Arguments
     /// * `index` - the index of the sector that needs to be erased. The address of the first byte of the sector is the provided index * SECTOR_SIZE.
     pub fn erase_sector(&mut self, index: u32) -> Result<(), Error<S, P>> {
@@ -262,13 +258,13 @@ where
         self.spi.write(&command_buf).map_err(Error::SpiError)?;
         self.cs.set_high().map_err(Error::PinError)?;
 
-        while self.busy().unwrap() == true {}
+        while self.busy().unwrap() {}
 
         Ok(())
     }
 
     /// Erases a single block of flash memory with the size of BLOCK_32K_SIZE.
-    /// 
+    ///
     /// # Arguments
     /// * `index` - the index of the block that needs to be erased. The address of the first byte of the block is the provided index * BLOCK_32K_SIZE.
     pub fn erase_block_32k(&mut self, index: u32) -> Result<(), Error<S, P>> {
@@ -292,13 +288,13 @@ where
         self.spi.write(&command_buf).map_err(Error::SpiError)?;
         self.cs.set_high().map_err(Error::PinError)?;
 
-        while self.busy().unwrap() == true {}
+        while self.busy().unwrap() {}
 
         Ok(())
     }
 
     /// Erases a single block of flash memory with the size of BLOCK_64K_SIZE.
-    /// 
+    ///
     /// # Arguments
     /// * `index` - the index of the block that needs to be erased. The address of the first byte of the block is the provided index * BLOCK_64K_SIZE.
     pub fn erase_block_64k(&mut self, index: u32) -> Result<(), Error<S, P>> {
@@ -322,7 +318,7 @@ where
         self.spi.write(&command_buf).map_err(Error::SpiError)?;
         self.cs.set_high().map_err(Error::PinError)?;
 
-        while self.busy().unwrap() == true {}
+        while self.busy().unwrap() {}
 
         Ok(())
     }
@@ -332,13 +328,13 @@ where
     pub fn erase_chip(&mut self) -> Result<(), Error<S, P>> {
         self.enable_write()?;
 
-        let mut command_buf: [u8; 1] = [Command::ChipErase as u8];
+        let command_buf: [u8; 1] = [Command::ChipErase as u8];
 
         self.cs.set_low().map_err(Error::PinError)?;
-        self.spi.write(&mut command_buf).map_err(Error::SpiError)?;
+        self.spi.write(&command_buf).map_err(Error::SpiError)?;
         self.cs.set_high().map_err(Error::PinError)?;
 
-        while self.busy().unwrap() == true {}
+        while self.busy().unwrap() {}
 
         Ok(())
     }
