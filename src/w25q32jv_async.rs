@@ -2,8 +2,8 @@ use super::{Error, Command};
 use core::fmt::Debug;
 use core::future::Future;
 use embedded_hal::digital::v2::OutputPin;
-use embedded_hal_async::spi::{SpiBusWrite, SpiBusRead};
-use embedded_hal_async::spi::{transaction, SpiBus, SpiDevice};
+use embedded_hal_async::spi::{SpiBusWrite, SpiBusRead, Operation};
+use embedded_hal_async::spi::{SpiBus, SpiDevice};
 use embedded_storage;
 use embedded_storage::nor_flash::ErrorType;
 use embedded_storage_async::nor_flash::{AsyncReadNorFlash, AsyncNorFlash};
@@ -18,7 +18,6 @@ pub struct W25q32jv<SPI, HOLD, WP> {
 impl<SPI, S, P, HOLD, WP> ErrorType for W25q32jv<SPI, HOLD, WP>
 where
     SPI: SpiDevice<Error = S>,
-    SPI::Bus: SpiBus + SpiBusWrite,
     HOLD: OutputPin<Error = P>,
     WP: OutputPin<Error = P>,
     S: Debug,
@@ -30,7 +29,6 @@ where
 impl<SPI, S, P, HOLD, WP> AsyncReadNorFlash for W25q32jv<SPI, HOLD, WP>
 where
     SPI: SpiDevice<Error = S>,
-    SPI::Bus: SpiBus + SpiBusWrite,
     HOLD: OutputPin<Error = P>,
     WP: OutputPin<Error = P>,
     S: Debug,
@@ -56,7 +54,6 @@ where
 impl<SPI, S, P, HOLD, WP> AsyncNorFlash for W25q32jv<SPI, HOLD, WP>
 where
     SPI: SpiDevice<Error = S>,
-    SPI::Bus: SpiBus + SpiBusWrite,
     HOLD: OutputPin<Error = P>,
     WP: OutputPin<Error = P>,
     S: Debug,
@@ -90,7 +87,6 @@ where
 impl<SPI, S, P, HOLD, WP> W25q32jv<SPI, HOLD, WP>
 where
     SPI: SpiDevice<Error = S>,
-    SPI::Bus: SpiBus + SpiBusWrite,
     HOLD: OutputPin<Error = P>,
     WP: OutputPin<Error = P>,
     S: Debug,
@@ -163,10 +159,10 @@ where
             address_bytes[2],
         ];
 
-        transaction!(&mut self.spi, move |bus| async move {
-            bus.write(&command_buf).await?;
-            bus.read(buf).await.and(Ok(()))
-        }).await.map_err(Error::SpiError)?;
+        self.spi.transaction(&mut [
+            Operation::Write(&command_buf),
+            Operation::Read(buf)
+        ]).await.map_err(Error::SpiError)?;
 
         Ok(())
     }
@@ -206,10 +202,10 @@ where
         self.spi.write(&command_buf).await.map_err(Error::SpiError)?;
         self.spi.write(buf).await.map_err(Error::SpiError)?;
 
-        transaction!(&mut self.spi, move |bus| async move {
-            bus.write(&command_buf).await?;
-            bus.write(buf).await.and(Ok(()))
-        }).await.map_err(Error::SpiError)?;
+        self.spi.transaction(&mut [
+            Operation::Write(&command_buf),
+            Operation::Write(buf),
+        ]).await.map_err(Error::SpiError)?;
 
         while self.busy().await.unwrap() == true {}
 

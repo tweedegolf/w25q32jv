@@ -1,15 +1,19 @@
 #![no_std]
 #![no_main]
 #![feature(type_alias_impl_trait)]
-
+#![feature(impl_trait_in_assoc_type)]
 use embassy_executor::Spawner;
-use embassy_nrf::{spim, interrupt};
-use embassy_time::{Duration, Timer};
 use embassy_nrf::gpio::{AnyPin, Input, Level, Output, OutputDrive, Pin, Pull};
+use embassy_nrf::{bind_interrupts, peripherals::SERIAL2, spim};
+use embassy_time::{Duration, Timer};
 use embedded_hal_async::spi::ExclusiveDevice;
-use embedded_storage_async::nor_flash::{AsyncReadNorFlash, AsyncNorFlash};
+use embedded_storage_async::nor_flash::{AsyncNorFlash, AsyncReadNorFlash};
 use nrf9160_rust_starter as _; // global logger + panicking-behavior + memory layout
 use w25q32jv::w25q32jv_async::W25q32jv;
+
+bind_interrupts!(struct Irqs {
+    UARTE2_SPIM2_SPIS2_TWIM2_TWIS2 => embassy_nrf::spim::InterruptHandler<SERIAL2>;
+});
 
 #[embassy_executor::task]
 async fn blink(pin: AnyPin) {
@@ -44,8 +48,7 @@ async fn main(spawner: Spawner) {
     let mut config = spim::Config::default();
     config.frequency = spim::Frequency::M1;
 
-    let irq = interrupt::take!(UARTE2_SPIM2_SPIS2_TWIM2_TWIS2);
-    let spim = spim::Spim::new(p.UARTETWISPI2, irq, p.P0_21, p.P0_24, p.P0_22, config);
+    let spim = spim::Spim::new(p.SERIAL2, Irqs, p.P0_21, p.P0_24, p.P0_22, config);
 
     let cs = Output::new(p.P0_25, Level::Low, OutputDrive::Standard);
     let hold = Output::new(p.P0_20, Level::Low, OutputDrive::Standard);
