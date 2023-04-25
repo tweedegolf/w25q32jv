@@ -1,12 +1,12 @@
 #![no_std]
 #![no_main]
 
-use embedded_storage::nor_flash::ReadNorFlash;
-use panic_probe as _;
 use cortex_m_rt::entry;
-use w25q32jv::W25q32jv;
+use embedded_storage::nor_flash::ReadNorFlash;
+use nrf9160_hal::{gpio, gpio::Level, pac::Peripherals, spim, Spim};
 use nrf9160_rust_starter as _; // global logger + panicking-behavior + memory layout
-use nrf9160_hal::{gpio, spim, Spim, pac::Peripherals, gpio::Level};
+use panic_probe as _;
+use w25q32jv::W25q32jv;
 
 #[entry]
 fn main() -> ! {
