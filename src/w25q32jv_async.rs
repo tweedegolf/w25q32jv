@@ -134,6 +134,19 @@ where
         Ok(TryFrom::try_from(&r_buf[5..]).unwrap())
     }
 
+    /// Reset the chip
+    pub async fn reset(&mut self) -> Result<(), Error<S, P>> {
+        self.spi
+            .write(&[Command::EnableReset as u8])
+            .await
+            .map_err(Error::SpiError)?;
+        self.spi
+            .write(&[Command::Reset as u8])
+            .await
+            .map_err(Error::SpiError)?;
+        Ok(())
+    }
+
     /// Reads a chunk of bytes from the flash chip.
     /// The number of bytes read is equal to the length of the buf slice.
     /// The first byte is read from the provided address. This address is then incremented for each following byte.
@@ -183,9 +196,7 @@ where
     /// * `address` - Address where the first byte of the buf will be written.
     /// * `buf` - Slice of bytes that will be written.
     pub async fn write(&mut self, mut address: u32, mut buf: &[u8]) -> Result<(), Error<S, P>> {
-        self.enable_write().await?;
-
-        if address + buf.len() as u32 >= Self::N_PAGES * Self::PAGE_SIZE {
+        if address + buf.len() as u32 > Self::N_PAGES * Self::PAGE_SIZE {
             return Err(Error::OutOfBounds);
         }
 
@@ -197,10 +208,13 @@ where
 
         // Write rest of the chunks
         let mut chunk_len = chunk_len;
-        while !buf.is_empty() {
+        loop {
             buf = &buf[chunk_len..];
             address += chunk_len as u32;
             chunk_len = buf.len().min(Self::PAGE_SIZE as usize);
+            if chunk_len == 0 {
+                break;
+            }
             self.write_page(address, &buf[..chunk_len]).await?;
         }
 
@@ -210,16 +224,18 @@ where
     /// Execute a write on a single page
     async fn write_page(&mut self, address: u32, buf: &[u8]) -> Result<(), Error<S, P>> {
         // We don't support wrapping writes. They're scary
-        if (address & 0x000000FF) + buf.len() as u32 >= Self::PAGE_SIZE {
+        if (address & 0x000000FF) + buf.len() as u32 > Self::PAGE_SIZE {
             return Err(Error::OutOfBounds);
         }
 
-        let address_bytes = address.to_be_bytes();
+        self.enable_write().await?;
+
+        let address_bytes = address.to_le_bytes();
         let command_buf: [u8; 4] = [
             Command::PageProgram as u8,
-            address_bytes[0],
-            address_bytes[1],
             address_bytes[2],
+            address_bytes[1],
+            address_bytes[0],
         ];
 
         self.spi

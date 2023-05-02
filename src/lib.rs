@@ -36,4 +36,6 @@ enum Command {
     Block32Erase = 0x52,
     Block64Erase = 0xD8,
     ChipErase = 0xC7,
+    EnableReset = 0x66,
+    Reset = 0x99,
 }
