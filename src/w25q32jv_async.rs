@@ -122,7 +122,7 @@ where
     /// Request the 64 bit id that is unique to this chip.
     pub async fn device_id(&mut self) -> Result<[u8; 8], Error<S, P>> {
         let mut w_buf: [u8; 13] = [0; 13];
-        w_buf[0] = Command::DeviceID as u8;
+        w_buf[0] = Command::UniqueId as u8;
 
         let mut r_buf: [u8; 13] = [0; 13];
 
@@ -132,6 +132,19 @@ where
             .map_err(Error::SpiError)?;
 
         Ok(TryFrom::try_from(&r_buf[5..]).unwrap())
+    }
+
+    /// Reset the chip
+    pub async fn reset(&mut self) -> Result<(), Error<S, P>> {
+        self.spi
+            .write(&[Command::EnableReset as u8])
+            .await
+            .map_err(Error::SpiError)?;
+        self.spi
+            .write(&[Command::Reset as u8])
+            .await
+            .map_err(Error::SpiError)?;
+        Ok(())
     }
 
     /// Reads a chunk of bytes from the flash chip.
@@ -148,7 +161,7 @@ where
 
         let address_bytes = address.to_be_bytes();
         let command_buf: [u8; 4] = [
-            Command::Read as u8,
+            Command::ReadData as u8,
             address_bytes[0],
             address_bytes[1],
             address_bytes[2],
@@ -182,19 +195,47 @@ where
     /// # Arguments
     /// * `address` - Address where the first byte of the buf will be written.
     /// * `buf` - Slice of bytes that will be written.
-    pub async fn write(&mut self, address: u32, buf: &[u8]) -> Result<(), Error<S, P>> {
-        self.enable_write().await?;
-
-        if address + buf.len() as u32 >= Self::N_PAGES * Self::PAGE_SIZE {
+    pub async fn write(&mut self, mut address: u32, mut buf: &[u8]) -> Result<(), Error<S, P>> {
+        if address + buf.len() as u32 > Self::N_PAGES * Self::PAGE_SIZE {
             return Err(Error::OutOfBounds);
         }
 
-        let address_bytes = address.to_be_bytes();
+        // Write first chunk, taking into account that given addres might
+        // point to a location that is not on a page boundary,
+        let chunk_len = (Self::PAGE_SIZE - (address & 0x000000FF)) as usize;
+        let chunk_len = chunk_len.min(buf.len());
+        self.write_page(address, &buf[..chunk_len]).await?;
+
+        // Write rest of the chunks
+        let mut chunk_len = chunk_len;
+        loop {
+            buf = &buf[chunk_len..];
+            address += chunk_len as u32;
+            chunk_len = buf.len().min(Self::PAGE_SIZE as usize);
+            if chunk_len == 0 {
+                break;
+            }
+            self.write_page(address, &buf[..chunk_len]).await?;
+        }
+
+        Ok(())
+    }
+
+    /// Execute a write on a single page
+    async fn write_page(&mut self, address: u32, buf: &[u8]) -> Result<(), Error<S, P>> {
+        // We don't support wrapping writes. They're scary
+        if (address & 0x000000FF) + buf.len() as u32 > Self::PAGE_SIZE {
+            return Err(Error::OutOfBounds);
+        }
+
+        self.enable_write().await?;
+
+        let address_bytes = address.to_le_bytes();
         let command_buf: [u8; 4] = [
-            Command::Write as u8,
-            address_bytes[0],
-            address_bytes[1],
+            Command::PageProgram as u8,
             address_bytes[2],
+            address_bytes[1],
+            address_bytes[0],
         ];
 
         self.spi

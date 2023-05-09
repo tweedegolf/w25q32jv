@@ -27,13 +27,15 @@ pub enum Error<S, P> {
 
 /// Easily readable representation of the command bytes used by the flash chip.
 enum Command {
-    Write = 0x02,
-    Read = 0x03,
+    PageProgram = 0x02,
+    ReadData = 0x03,
     ReadStatusRegister1 = 0x05,
     WriteEnable = 0x06,
     SectorErase = 0x20,
-    DeviceID = 0x4B,
+    UniqueId = 0x4B,
     Block32Erase = 0x52,
     Block64Erase = 0xD8,
     ChipErase = 0xC7,
+    EnableReset = 0x66,
+    Reset = 0x99,
 }
