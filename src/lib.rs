@@ -62,6 +62,7 @@ where
 /// Custom error type for the various errors that can be thrown by W25q32jv.
 /// Can be converted into a NorFlashError.
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Error<S: Debug, P: Debug> {
     SpiError(S),
     PinError(P),
