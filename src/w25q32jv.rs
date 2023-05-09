@@ -2,38 +2,9 @@ use super::*;
 use core::fmt::Debug;
 use embedded_hal::blocking::spi::{Transfer, Write};
 use embedded_hal::digital::v2::OutputPin;
-use embedded_storage::nor_flash::{
-    ErrorType, NorFlash, NorFlashError, NorFlashErrorKind, ReadNorFlash,
-};
+use embedded_storage::nor_flash::{NorFlash, ReadNorFlash};
 
-impl<S, P> NorFlashError for Error<S, P>
-where
-    S: Debug,
-    P: Debug,
-{
-    fn kind(&self) -> NorFlashErrorKind {
-        match self {
-            Error::SpiError(_) => NorFlashErrorKind::Other,
-            Error::PinError(_) => NorFlashErrorKind::Other,
-            Error::NotAligned => NorFlashErrorKind::NotAligned,
-            Error::OutOfBounds => NorFlashErrorKind::OutOfBounds,
-        }
-    }
-}
-
-impl<SPI, S, P, CS, HOLD, WP> ErrorType for W25q32jv<SPI, CS, HOLD, WP>
-where
-    SPI: Transfer<u8, Error = S> + Write<u8, Error = S>,
-    CS: OutputPin<Error = P>,
-    HOLD: OutputPin<Error = P>,
-    WP: OutputPin<Error = P>,
-    S: Debug,
-    P: Debug,
-{
-    type Error = Error<S, P>;
-}
-
-impl<SPI, S, P, CS, HOLD, WP> ReadNorFlash for W25q32jv<SPI, CS, HOLD, WP>
+impl<SPI, S, P, CS, HOLD, WP> ReadNorFlash for W25q32jv<(SPI, CS), HOLD, WP>
 where
     SPI: Transfer<u8, Error = S> + Write<u8, Error = S>,
     CS: OutputPin<Error = P>,
@@ -53,7 +24,7 @@ where
     }
 }
 
-impl<SPI, S, P, CS, HOLD, WP> NorFlash for W25q32jv<SPI, CS, HOLD, WP>
+impl<SPI, S, P, CS, HOLD, WP> NorFlash for W25q32jv<(SPI, CS), HOLD, WP>
 where
     SPI: Transfer<u8, Error = S> + Write<u8, Error = S>,
     CS: OutputPin<Error = P>,
@@ -75,7 +46,7 @@ where
     }
 }
 
-impl<SPI, S, P, CS, HOLD, WP> W25q32jv<SPI, CS, HOLD, WP>
+impl<SPI, S, P, CS, HOLD, WP> W25q32jv<(SPI, CS), HOLD, WP>
 where
     SPI: Transfer<u8, Error = S> + Write<u8, Error = S>,
     CS: OutputPin<Error = P>,
@@ -84,53 +55,59 @@ where
     S: Debug,
     P: Debug,
 {
-    pub fn new(spi: SPI, cs: CS, hold: HOLD, wp: WP) -> Result<Self, Error<S, P>> {
-        let mut flash = W25q32jv { spi, cs, hold, wp };
+    pub fn new(spi: SPI, cs: CS, hold: HOLD, wp: WP) -> Result<Self, Error> {
+        let mut flash = W25q32jv {
+            spi: (spi, cs),
+            hold,
+            wp,
+        };
 
-        flash.cs.set_high().map_err(Error::PinError)?;
-        flash.hold.set_high().map_err(Error::PinError)?;
-        flash.wp.set_high().map_err(Error::PinError)?;
+        flash.spi.1.set_high().map_err(|_| Error::PinError)?;
+        flash.hold.set_high().map_err(|_| Error::PinError)?;
+        flash.wp.set_high().map_err(|_| Error::PinError)?;
 
         Ok(flash)
     }
 
     /// The flash chip is unable to perform new commands while it is still working on a previous one. Especially erases take a long time.
     /// This function returns true while the chip is unable to respond to commands (with the exception of the busy command).
-    pub fn busy(&mut self) -> Result<bool, Error<S, P>> {
+    pub fn busy(&mut self) -> Result<bool, Error> {
         let mut buf: [u8; 3] = [0; 3];
         buf[0] = Command::ReadStatusRegister1 as u8;
 
-        self.cs.set_low().map_err(Error::PinError)?;
-        self.spi.transfer(&mut buf).map_err(Error::SpiError)?;
-        self.cs.set_high().map_err(Error::PinError)?;
+        self.spi.1.set_low().map_err(|_| Error::PinError)?;
+        self.spi.0.transfer(&mut buf).map_err(|_| Error::SpiError)?;
+        self.spi.1.set_high().map_err(|_| Error::PinError)?;
 
         Ok((buf[1] & 0x01) != 0)
     }
 
     /// Request the 64 bit id that is unique to this chip.
-    pub fn device_id(&mut self) -> Result<[u8; 8], Error<S, P>> {
+    pub fn device_id(&mut self) -> Result<[u8; 8], Error> {
         let mut buf: [u8; 13] = [0; 13];
         buf[0] = Command::UniqueId as u8;
 
-        self.cs.set_low().map_err(Error::PinError)?;
-        self.spi.transfer(&mut buf).map_err(Error::SpiError)?;
-        self.cs.set_high().map_err(Error::PinError)?;
+        self.spi.1.set_low().map_err(|_| Error::PinError)?;
+        self.spi.0.transfer(&mut buf).map_err(|_| Error::SpiError)?;
+        self.spi.1.set_high().map_err(|_| Error::PinError)?;
 
         Ok(TryFrom::try_from(&buf[5..]).unwrap())
     }
 
     /// Reset the chip
-    pub fn reset(&mut self) -> Result<(), Error<S, P>> {
-        self.cs.set_low().map_err(Error::PinError)?;
+    pub fn reset(&mut self) -> Result<(), Error> {
+        self.spi.1.set_low().map_err(|_| Error::PinError)?;
         self.spi
+            .0
             .write(&[Command::EnableReset as u8])
-            .map_err(Error::SpiError)?;
-        self.cs.set_high().map_err(Error::PinError)?;
-        self.cs.set_low().map_err(Error::PinError)?;
+            .map_err(|_| Error::SpiError)?;
+        self.spi.1.set_high().map_err(|_| Error::PinError)?;
+        self.spi.1.set_low().map_err(|_| Error::PinError)?;
         self.spi
+            .0
             .write(&[Command::Reset as u8])
-            .map_err(Error::SpiError)?;
-        self.cs.set_high().map_err(Error::PinError)?;
+            .map_err(|_| Error::SpiError)?;
+        self.spi.1.set_high().map_err(|_| Error::PinError)?;
         Ok(())
     }
 
@@ -141,7 +118,7 @@ where
     /// # Arguments
     /// * `address` - Address where the first byte of the buf will be read.
     /// * `buf` - Slice that is going to be filled with the read bytes.
-    pub fn read(&mut self, address: u32, buf: &mut [u8]) -> Result<(), Error<S, P>> {
+    pub fn read(&mut self, address: u32, buf: &mut [u8]) -> Result<(), Error> {
         if address + buf.len() as u32 >= Self::N_PAGES * Self::PAGE_SIZE {
             return Err(Error::OutOfBounds);
         }
@@ -154,10 +131,13 @@ where
             address_bytes[2],
         ];
 
-        self.cs.set_low().map_err(Error::PinError)?;
-        self.spi.write(&command_buf).map_err(Error::SpiError)?;
-        self.spi.transfer(buf).map_err(Error::SpiError)?;
-        self.cs.set_high().map_err(Error::PinError)?;
+        self.spi.1.set_low().map_err(|_| Error::PinError)?;
+        self.spi
+            .0
+            .write(&command_buf)
+            .map_err(|_| Error::SpiError)?;
+        self.spi.0.transfer(buf).map_err(|_| Error::SpiError)?;
+        self.spi.1.set_high().map_err(|_| Error::PinError)?;
 
         Ok(())
     }
@@ -165,12 +145,15 @@ where
     /// Sets the enable_write flag on the flash chip to true.
     /// Writes and erases to the chip only have effect when this flag is true.
     /// Each write and erase clears the flag, requiring it to be set to true again for the next command.
-    fn enable_write(&mut self) -> Result<(), Error<S, P>> {
+    fn enable_write(&mut self) -> Result<(), Error> {
         let command_buf: [u8; 1] = [Command::WriteEnable as u8];
 
-        self.cs.set_low().map_err(Error::PinError)?;
-        self.spi.write(&command_buf).map_err(Error::SpiError)?;
-        self.cs.set_high().map_err(Error::PinError)?;
+        self.spi.1.set_low().map_err(|_| Error::PinError)?;
+        self.spi
+            .0
+            .write(&command_buf)
+            .map_err(|_| Error::SpiError)?;
+        self.spi.1.set_high().map_err(|_| Error::PinError)?;
 
         Ok(())
     }
@@ -181,7 +164,7 @@ where
     /// # Arguments
     /// * `address` - Address where the first byte of the buf will be written.
     /// * `buf` - Slice of bytes that will be written.
-    pub fn write(&mut self, mut address: u32, mut buf: &[u8]) -> Result<(), Error<S, P>> {
+    pub fn write(&mut self, mut address: u32, mut buf: &[u8]) -> Result<(), Error> {
         if address + buf.len() as u32 > Self::N_PAGES * Self::PAGE_SIZE {
             return Err(Error::OutOfBounds);
         }
@@ -207,7 +190,7 @@ where
         Ok(())
     }
 
-    fn write_page(&mut self, address: u32, buf: &[u8]) -> Result<(), Error<S, P>> {
+    fn write_page(&mut self, address: u32, buf: &[u8]) -> Result<(), Error> {
         // We don't support wrapping writes. They're scary
         if (address & 0x000000FF) + buf.len() as u32 > Self::PAGE_SIZE {
             return Err(Error::OutOfBounds);
@@ -223,10 +206,13 @@ where
             address_bytes[0],
         ];
 
-        self.cs.set_low().map_err(Error::PinError)?;
-        self.spi.write(&command_buf).map_err(Error::SpiError)?;
-        self.spi.write(buf).map_err(Error::SpiError)?;
-        self.cs.set_high().map_err(Error::PinError)?;
+        self.spi.1.set_low().map_err(|_| Error::PinError)?;
+        self.spi
+            .0
+            .write(&command_buf)
+            .map_err(|_| Error::SpiError)?;
+        self.spi.0.write(buf).map_err(|_| Error::SpiError)?;
+        self.spi.1.set_high().map_err(|_| Error::PinError)?;
 
         while self.busy().unwrap() {}
 
@@ -241,7 +227,7 @@ where
     /// # Arguments
     /// * `start_address` - Address of the first byte of the start of the range of sectors that need to be erased.
     /// * `end_address` - Address of the first byte of the end of the range of sectors that need to be erased.
-    pub fn erase_range(&mut self, start_address: u32, end_address: u32) -> Result<(), Error<S, P>> {
+    pub fn erase_range(&mut self, start_address: u32, end_address: u32) -> Result<(), Error> {
         self.enable_write()?;
 
         if start_address % (Self::SECTOR_SIZE) != 0 {
@@ -270,7 +256,7 @@ where
     ///
     /// # Arguments
     /// * `index` - the index of the sector that needs to be erased. The address of the first byte of the sector is the provided index * SECTOR_SIZE.
-    pub fn erase_sector(&mut self, index: u32) -> Result<(), Error<S, P>> {
+    pub fn erase_sector(&mut self, index: u32) -> Result<(), Error> {
         self.enable_write()?;
 
         if index >= Self::N_SECTORS {
@@ -287,9 +273,12 @@ where
             address_bytes[2],
         ];
 
-        self.cs.set_low().map_err(Error::PinError)?;
-        self.spi.write(&command_buf).map_err(Error::SpiError)?;
-        self.cs.set_high().map_err(Error::PinError)?;
+        self.spi.1.set_low().map_err(|_| Error::PinError)?;
+        self.spi
+            .0
+            .write(&command_buf)
+            .map_err(|_| Error::SpiError)?;
+        self.spi.1.set_high().map_err(|_| Error::PinError)?;
 
         while self.busy().unwrap() {}
 
@@ -300,7 +289,7 @@ where
     ///
     /// # Arguments
     /// * `index` - the index of the block that needs to be erased. The address of the first byte of the block is the provided index * BLOCK_32K_SIZE.
-    pub fn erase_block_32k(&mut self, index: u32) -> Result<(), Error<S, P>> {
+    pub fn erase_block_32k(&mut self, index: u32) -> Result<(), Error> {
         self.enable_write()?;
 
         if index >= Self::N_BLOCKS_32K {
@@ -317,9 +306,12 @@ where
             address_bytes[2],
         ];
 
-        self.cs.set_low().map_err(Error::PinError)?;
-        self.spi.write(&command_buf).map_err(Error::SpiError)?;
-        self.cs.set_high().map_err(Error::PinError)?;
+        self.spi.1.set_low().map_err(|_| Error::PinError)?;
+        self.spi
+            .0
+            .write(&command_buf)
+            .map_err(|_| Error::SpiError)?;
+        self.spi.1.set_high().map_err(|_| Error::PinError)?;
 
         while self.busy().unwrap() {}
 
@@ -330,7 +322,7 @@ where
     ///
     /// # Arguments
     /// * `index` - the index of the block that needs to be erased. The address of the first byte of the block is the provided index * BLOCK_64K_SIZE.
-    pub fn erase_block_64k(&mut self, index: u32) -> Result<(), Error<S, P>> {
+    pub fn erase_block_64k(&mut self, index: u32) -> Result<(), Error> {
         self.enable_write()?;
 
         if index >= Self::N_BLOCKS_64K {
@@ -347,9 +339,12 @@ where
             address_bytes[2],
         ];
 
-        self.cs.set_low().map_err(Error::PinError)?;
-        self.spi.write(&command_buf).map_err(Error::SpiError)?;
-        self.cs.set_high().map_err(Error::PinError)?;
+        self.spi.1.set_low().map_err(|_| Error::PinError)?;
+        self.spi
+            .0
+            .write(&command_buf)
+            .map_err(|_| Error::SpiError)?;
+        self.spi.1.set_high().map_err(|_| Error::PinError)?;
 
         while self.busy().unwrap() {}
 
@@ -358,22 +353,20 @@ where
 
     /// Erases all sectors on the flash chip.
     /// This is a very expensive operation.
-    pub fn erase_chip(&mut self) -> Result<(), Error<S, P>> {
+    pub fn erase_chip(&mut self) -> Result<(), Error> {
         self.enable_write()?;
 
         let command_buf: [u8; 1] = [Command::ChipErase as u8];
 
-        self.cs.set_low().map_err(Error::PinError)?;
-        self.spi.write(&command_buf).map_err(Error::SpiError)?;
-        self.cs.set_high().map_err(Error::PinError)?;
+        self.spi.1.set_low().map_err(|_| Error::PinError)?;
+        self.spi
+            .0
+            .write(&command_buf)
+            .map_err(|_| Error::SpiError)?;
+        self.spi.1.set_high().map_err(|_| Error::PinError)?;
 
         while self.busy().unwrap() {}
 
         Ok(())
-    }
-
-    /// Get the capacity of the flash chip in bytes.
-    pub fn capacity() -> usize {
-        (Self::N_PAGES * Self::PAGE_SIZE) as usize
     }
 }

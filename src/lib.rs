@@ -1,10 +1,13 @@
 #![no_std]
 #![deny(unsafe_code)]
-#![feature(async_fn_in_trait)]
+#![allow(incomplete_features)]
+#![cfg_attr(feature = "asynch", feature(async_fn_in_trait))]
 
-pub mod w25q32jv;
+use embedded_storage::nor_flash::{ErrorType, NorFlashError, NorFlashErrorKind};
+
+mod w25q32jv;
 #[cfg(feature = "asynch")]
-pub mod w25q32jv_async;
+mod w25q32jv_async;
 
 /// Low level driver for the w25q32jv flash memory chip.
 pub struct W25q32jv<SPI, HOLD, WP> {
@@ -22,16 +25,36 @@ impl<SPI, HOLD, WP> W25q32jv<SPI, HOLD, WP> {
     const N_BLOCKS_32K: u32 = Self::N_SECTORS / 8;
     const BLOCK_64K_SIZE: u32 = Self::BLOCK_32K_SIZE * 2;
     const N_BLOCKS_64K: u32 = Self::N_BLOCKS_32K / 2;
+
+    /// Get the capacity of the flash chip in bytes.
+    pub fn capacity() -> usize {
+        (Self::N_PAGES * Self::PAGE_SIZE) as usize
+    }
+}
+
+impl<SPI, HOLD, WP> ErrorType for W25q32jv<SPI, HOLD, WP> {
+    type Error = Error;
 }
 
 /// Custom error type for the various errors that can be thrown by W25q32jv.
 /// Can be converted into a NorFlashError.
 #[derive(Debug)]
-pub enum Error<S, P> {
-    SpiError(S),
-    PinError(P),
+pub enum Error {
+    SpiError,
+    PinError,
     NotAligned,
     OutOfBounds,
+}
+
+impl NorFlashError for Error {
+    fn kind(&self) -> NorFlashErrorKind {
+        match self {
+            Error::SpiError => NorFlashErrorKind::Other,
+            Error::PinError => NorFlashErrorKind::Other,
+            Error::NotAligned => NorFlashErrorKind::NotAligned,
+            Error::OutOfBounds => NorFlashErrorKind::OutOfBounds,
+        }
+    }
 }
 
 /// Easily readable representation of the command bytes used by the flash chip.
@@ -48,7 +71,3 @@ enum Command {
     EnableReset = 0x66,
     Reset = 0x99,
 }
-
-// pub trait Spi {
-
-// }

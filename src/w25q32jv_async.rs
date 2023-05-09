@@ -1,28 +1,9 @@
 use super::{Command, Error};
+use crate::W25q32jv;
 use core::fmt::Debug;
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal_async::spi::{Operation, SpiDevice};
-use embedded_storage;
-use embedded_storage::nor_flash::ErrorType;
 use embedded_storage_async::nor_flash::{NorFlash, ReadNorFlash};
-
-/// Async implementation of the low level driver for the w25q32jv flash memory chip.
-pub struct W25q32jv<SPI, HOLD, WP> {
-    spi: SPI,
-    hold: HOLD,
-    wp: WP,
-}
-
-impl<SPI, S, P, HOLD, WP> ErrorType for W25q32jv<SPI, HOLD, WP>
-where
-    SPI: SpiDevice<Error = S>,
-    HOLD: OutputPin<Error = P>,
-    WP: OutputPin<Error = P>,
-    S: Debug,
-    P: Debug,
-{
-    type Error = Error<S, P>;
-}
 
 impl<SPI, S, P, HOLD, WP> ReadNorFlash for W25q32jv<SPI, HOLD, WP>
 where
@@ -34,8 +15,8 @@ where
 {
     const READ_SIZE: usize = 1;
 
-    async fn read<'a>(&'a mut self, offset: u32, bytes: &'a mut [u8]) -> Result<(), Self::Error> {
-        self.read(offset, bytes).await.and(Ok(()))
+    async fn read(&mut self, offset: u32, bytes: &mut [u8]) -> Result<(), Self::Error> {
+        self.read_async(offset, bytes).await
     }
 
     fn capacity(&self) -> usize {
@@ -56,11 +37,11 @@ where
     const ERASE_SIZE: usize = Self::SECTOR_SIZE as usize;
 
     async fn erase(&mut self, from: u32, to: u32) -> Result<(), Self::Error> {
-        self.erase_range(from, to).await.and(Ok(()))
+        self.erase_range_async(from, to).await
     }
 
-    async fn write<'a>(&'a mut self, offset: u32, bytes: &'a [u8]) -> Result<(), Self::Error> {
-        self.write(offset, bytes).await.and(Ok(()))
+    async fn write(&mut self, offset: u32, bytes: &[u8]) -> Result<(), Self::Error> {
+        self.write_async(offset, bytes).await
     }
 }
 
@@ -72,56 +53,52 @@ where
     S: Debug,
     P: Debug,
 {
-    pub async fn new(spi: SPI, hold: HOLD, wp: WP) -> Result<Self, Error<S, P>> {
+    pub async fn new_async(spi: SPI, hold: HOLD, wp: WP) -> Result<Self, Error> {
         let mut flash = W25q32jv { spi, hold, wp };
 
-        flash.hold.set_high().map_err(Error::PinError)?;
-        flash.wp.set_high().map_err(Error::PinError)?;
+        flash.hold.set_high().map_err(|_| Error::PinError)?;
+        flash.wp.set_high().map_err(|_| Error::PinError)?;
 
         Ok(flash)
     }
 
     /// The flash chip is unable to perform new commands while it is still working on a previous one. Especially erases take a long time.
     /// This function returns true while the chip is unable to respond to commands (with the exception of the busy command).
-    pub async fn busy(&mut self) -> Result<bool, Error<S, P>> {
-        let mut w_buf: [u8; 3] = [0; 3];
-        w_buf[0] = Command::ReadStatusRegister1 as u8;
-
-        let mut r_buf: [u8; 3] = [0; 3];
+    pub async fn busy_async(&mut self) -> Result<bool, Error> {
+        let mut buf: [u8; 3] = [0; 3];
+        buf[0] = Command::ReadStatusRegister1 as u8;
 
         self.spi
-            .transfer(&mut r_buf, &w_buf)
+            .transfer_in_place(&mut buf)
             .await
-            .map_err(Error::SpiError)?;
+            .map_err(|_| Error::SpiError)?;
 
-        Ok((r_buf[1] & 0x01) != 0)
+        Ok((buf[1] & 0x01) != 0)
     }
 
     /// Request the 64 bit id that is unique to this chip.
-    pub async fn device_id(&mut self) -> Result<[u8; 8], Error<S, P>> {
-        let mut w_buf: [u8; 13] = [0; 13];
-        w_buf[0] = Command::UniqueId as u8;
-
-        let mut r_buf: [u8; 13] = [0; 13];
+    pub async fn device_id_async(&mut self) -> Result<[u8; 8], Error> {
+        let mut buf: [u8; 13] = [0; 13];
+        buf[0] = Command::UniqueId as u8;
 
         self.spi
-            .transfer(&mut r_buf, &w_buf)
+            .transfer_in_place(&mut buf)
             .await
-            .map_err(Error::SpiError)?;
+            .map_err(|_| Error::SpiError)?;
 
-        Ok(TryFrom::try_from(&r_buf[5..]).unwrap())
+        Ok(TryFrom::try_from(&buf[5..]).unwrap())
     }
 
     /// Reset the chip
-    pub async fn reset(&mut self) -> Result<(), Error<S, P>> {
+    pub async fn reset_async(&mut self) -> Result<(), Error> {
         self.spi
             .write(&[Command::EnableReset as u8])
             .await
-            .map_err(Error::SpiError)?;
+            .map_err(|_| Error::SpiError)?;
         self.spi
             .write(&[Command::Reset as u8])
             .await
-            .map_err(Error::SpiError)?;
+            .map_err(|_| Error::SpiError)?;
         Ok(())
     }
 
@@ -132,7 +109,7 @@ where
     /// # Arguments
     /// * `address` - Address where the first byte of the buf will be read.
     /// * `buf` - Slice that is going to be filled with the read bytes.   
-    pub async fn read(&mut self, address: u32, buf: &mut [u8]) -> Result<(), Error<S, P>> {
+    pub async fn read_async(&mut self, address: u32, buf: &mut [u8]) -> Result<(), Error> {
         if address + buf.len() as u32 >= Self::N_PAGES * Self::PAGE_SIZE {
             return Err(Error::OutOfBounds);
         }
@@ -148,7 +125,7 @@ where
         self.spi
             .transaction(&mut [Operation::Write(&command_buf), Operation::Read(buf)])
             .await
-            .map_err(Error::SpiError)?;
+            .map_err(|_| Error::SpiError)?;
 
         Ok(())
     }
@@ -156,13 +133,13 @@ where
     /// Sets the enable_write flag on the flash chip to true.
     /// Writes and erases to the chip only have effect when this flag is true.
     /// Each write and erase clears the flag, requiring it to be set to true again for the next command.
-    async fn enable_write(&mut self) -> Result<(), Error<S, P>> {
+    async fn enable_write_async(&mut self) -> Result<(), Error> {
         let command_buf: [u8; 1] = [Command::WriteEnable as u8];
 
         self.spi
             .write(&command_buf)
             .await
-            .map_err(Error::SpiError)?;
+            .map_err(|_| Error::SpiError)?;
 
         Ok(())
     }
@@ -173,7 +150,7 @@ where
     /// # Arguments
     /// * `address` - Address where the first byte of the buf will be written.
     /// * `buf` - Slice of bytes that will be written.
-    pub async fn write(&mut self, mut address: u32, mut buf: &[u8]) -> Result<(), Error<S, P>> {
+    pub async fn write_async(&mut self, mut address: u32, mut buf: &[u8]) -> Result<(), Error> {
         if address + buf.len() as u32 > Self::N_PAGES * Self::PAGE_SIZE {
             return Err(Error::OutOfBounds);
         }
@@ -182,7 +159,7 @@ where
         // point to a location that is not on a page boundary,
         let chunk_len = (Self::PAGE_SIZE - (address & 0x000000FF)) as usize;
         let chunk_len = chunk_len.min(buf.len());
-        self.write_page(address, &buf[..chunk_len]).await?;
+        self.write_page_async(address, &buf[..chunk_len]).await?;
 
         // Write rest of the chunks
         let mut chunk_len = chunk_len;
@@ -193,20 +170,20 @@ where
             if chunk_len == 0 {
                 break;
             }
-            self.write_page(address, &buf[..chunk_len]).await?;
+            self.write_page_async(address, &buf[..chunk_len]).await?;
         }
 
         Ok(())
     }
 
     /// Execute a write on a single page
-    async fn write_page(&mut self, address: u32, buf: &[u8]) -> Result<(), Error<S, P>> {
+    async fn write_page_async(&mut self, address: u32, buf: &[u8]) -> Result<(), Error> {
         // We don't support wrapping writes. They're scary
         if (address & 0x000000FF) + buf.len() as u32 > Self::PAGE_SIZE {
             return Err(Error::OutOfBounds);
         }
 
-        self.enable_write().await?;
+        self.enable_write_async().await?;
 
         let address_bytes = address.to_le_bytes();
         let command_buf: [u8; 4] = [
@@ -219,15 +196,15 @@ where
         self.spi
             .write(&command_buf)
             .await
-            .map_err(Error::SpiError)?;
-        self.spi.write(buf).await.map_err(Error::SpiError)?;
+            .map_err(|_| Error::SpiError)?;
+        self.spi.write(buf).await.map_err(|_| Error::SpiError)?;
 
         self.spi
             .transaction(&mut [Operation::Write(&command_buf), Operation::Write(buf)])
             .await
-            .map_err(Error::SpiError)?;
+            .map_err(|_| Error::SpiError)?;
 
-        while self.busy().await.unwrap() {}
+        while self.busy_async().await? {}
 
         Ok(())
     }
@@ -240,12 +217,12 @@ where
     /// # Arguments
     /// * `start_address` - Address of the first byte of the start of the range of sectors that need to be erased.
     /// * `end_address` - Address of the first byte of the end of the range of sectors that need to be erased.
-    pub async fn erase_range(
+    pub async fn erase_range_async(
         &mut self,
         start_address: u32,
         end_address: u32,
-    ) -> Result<(), Error<S, P>> {
-        self.enable_write().await?;
+    ) -> Result<(), Error> {
+        self.enable_write_async().await?;
 
         if start_address % (Self::SECTOR_SIZE) != 0 {
             return Err(Error::NotAligned);
@@ -263,7 +240,7 @@ where
         let end_sector = end_address / Self::SECTOR_SIZE;
 
         for sector in start_sector..end_sector {
-            self.erase_sector(sector).await.unwrap();
+            self.erase_sector_async(sector).await.unwrap();
         }
 
         Ok(())
@@ -273,8 +250,8 @@ where
     ///
     /// # Arguments
     /// * `index` - the index of the sector that needs to be erased. The address of the first byte of the sector is the provided index * SECTOR_SIZE.
-    pub async fn erase_sector(&mut self, index: u32) -> Result<(), Error<S, P>> {
-        self.enable_write().await?;
+    pub async fn erase_sector_async(&mut self, index: u32) -> Result<(), Error> {
+        self.enable_write_async().await?;
 
         if index >= Self::N_SECTORS {
             return Err(Error::OutOfBounds);
@@ -293,9 +270,9 @@ where
         self.spi
             .write(&command_buf)
             .await
-            .map_err(Error::SpiError)?;
+            .map_err(|_| Error::SpiError)?;
 
-        while self.busy().await.unwrap() {}
+        while self.busy_async().await? {}
 
         Ok(())
     }
@@ -304,8 +281,8 @@ where
     ///
     /// # Arguments
     /// * `index` - the index of the block that needs to be erased. The address of the first byte of the block is the provided index * BLOCK_32K_SIZE.
-    pub async fn erase_block_32k(&mut self, index: u32) -> Result<(), Error<S, P>> {
-        self.enable_write().await?;
+    pub async fn erase_block_32k_async(&mut self, index: u32) -> Result<(), Error> {
+        self.enable_write_async().await?;
 
         if index >= Self::N_BLOCKS_32K {
             return Err(Error::OutOfBounds);
@@ -324,9 +301,9 @@ where
         self.spi
             .write(&command_buf)
             .await
-            .map_err(Error::SpiError)?;
+            .map_err(|_| Error::SpiError)?;
 
-        while self.busy().await.unwrap() {}
+        while self.busy_async().await? {}
 
         Ok(())
     }
@@ -335,8 +312,8 @@ where
     ///
     /// # Arguments
     /// * `index` - the index of the block that needs to be erased. The address of the first byte of the block is the provided index * BLOCK_64K_SIZE.
-    pub async fn erase_block_64k(&mut self, index: u32) -> Result<(), Error<S, P>> {
-        self.enable_write().await?;
+    pub async fn erase_block_64k_async(&mut self, index: u32) -> Result<(), Error> {
+        self.enable_write_async().await?;
 
         if index >= Self::N_BLOCKS_64K {
             return Err(Error::OutOfBounds);
@@ -355,32 +332,27 @@ where
         self.spi
             .write(&command_buf)
             .await
-            .map_err(Error::SpiError)?;
+            .map_err(|_| Error::SpiError)?;
 
-        while self.busy().await.unwrap() {}
+        while self.busy_async().await? {}
 
         Ok(())
     }
 
     /// Erases all sectors on the flash chip.
     /// This is a very expensive operation.
-    pub async fn erase_chip(&mut self) -> Result<(), Error<S, P>> {
-        self.enable_write().await?;
+    pub async fn erase_chip_async(&mut self) -> Result<(), Error> {
+        self.enable_write_async().await?;
 
         let command_buf: [u8; 1] = [Command::ChipErase as u8];
 
         self.spi
             .write(&command_buf)
             .await
-            .map_err(Error::SpiError)?;
+            .map_err(|_| Error::SpiError)?;
 
-        while self.busy().await.unwrap() {}
+        while self.busy_async().await? {}
 
         Ok(())
-    }
-
-    /// Get the capacity of the flash chip in bytes.
-    pub fn capacity() -> usize {
-        (Self::N_PAGES * Self::PAGE_SIZE) as usize
     }
 }
