@@ -2,7 +2,7 @@ use super::*;
 use core::fmt::Debug;
 use embedded_hal::digital::OutputPin;
 use embedded_hal::spi::{Operation, SpiDevice};
-use embedded_storage::nor_flash::{NorFlash, ReadNorFlash};
+use embedded_storage::nor_flash::{MultiwriteNorFlash, NorFlash, ReadNorFlash};
 
 impl<SPI, S: Debug, P: Debug, HOLD, WP> ReadNorFlash for W25q32jv<SPI, HOLD, WP>
 where
@@ -33,7 +33,7 @@ where
 {
     const WRITE_SIZE: usize = 1;
 
-    const ERASE_SIZE: usize = Self::SECTOR_SIZE as usize;
+    const ERASE_SIZE: usize = SECTOR_SIZE as usize;
 
     fn erase(&mut self, from: u32, to: u32) -> Result<(), Error<S, P>> {
         self.erase_range(from, to)
@@ -42,6 +42,16 @@ where
     fn write(&mut self, offset: u32, bytes: &[u8]) -> Result<(), Error<S, P>> {
         self.write(offset, bytes)
     }
+}
+
+impl<SPI, S: Debug, P: Debug, HOLD, WP> MultiwriteNorFlash for W25q32jv<SPI, HOLD, WP>
+where
+    SPI: SpiDevice<Error = S>,
+    HOLD: OutputPin<Error = P>,
+    WP: OutputPin<Error = P>,
+    S: Debug,
+    P: Debug,
+{
 }
 
 impl<SPI, S: Debug, P: Debug, HOLD, WP> W25q32jv<SPI, HOLD, WP>
@@ -96,7 +106,7 @@ where
     /// * `address` - Address where the first byte of the buf will be read.
     /// * `buf` - Slice that is going to be filled with the read bytes.
     pub fn read(&mut self, address: u32, buf: &mut [u8]) -> Result<(), Error<S, P>> {
-        if address + buf.len() as u32 >= Self::N_PAGES * Self::PAGE_SIZE {
+        if address + buf.len() as u32 > CAPACITY {
             return Err(Error::OutOfBounds);
         }
 
@@ -133,13 +143,13 @@ where
     /// * `address` - Address where the first byte of the buf will be written.
     /// * `buf` - Slice of bytes that will be written.
     pub fn write(&mut self, mut address: u32, mut buf: &[u8]) -> Result<(), Error<S, P>> {
-        if address + buf.len() as u32 > Self::N_PAGES * Self::PAGE_SIZE {
+        if address + buf.len() as u32 > CAPACITY {
             return Err(Error::OutOfBounds);
         }
 
         // Write first chunk, taking into account that given addres might
         // point to a location that is not on a page boundary,
-        let chunk_len = (Self::PAGE_SIZE - (address & 0x000000FF)) as usize;
+        let chunk_len = (PAGE_SIZE - (address & 0x000000FF)) as usize;
         let chunk_len = chunk_len.min(buf.len());
         self.write_page(address, &buf[..chunk_len])?;
 
@@ -148,7 +158,7 @@ where
         loop {
             buf = &buf[chunk_len..];
             address += chunk_len as u32;
-            chunk_len = buf.len().min(Self::PAGE_SIZE as usize);
+            chunk_len = buf.len().min(PAGE_SIZE as usize);
             if chunk_len == 0 {
                 break;
             }
@@ -161,7 +171,7 @@ where
     /// Execute a write on a single page
     fn write_page(&mut self, address: u32, buf: &[u8]) -> Result<(), Error<S, P>> {
         // We don't support wrapping writes. They're scary
-        if (address & 0x000000FF) + buf.len() as u32 > Self::PAGE_SIZE {
+        if (address & 0x000000FF) + buf.len() as u32 > PAGE_SIZE {
             return Err(Error::OutOfBounds);
         }
 
@@ -198,11 +208,11 @@ where
     pub fn erase_range(&mut self, start_address: u32, end_address: u32) -> Result<(), Error<S, P>> {
         self.enable_write()?;
 
-        if start_address % (Self::SECTOR_SIZE) != 0 {
+        if start_address % (SECTOR_SIZE) != 0 {
             return Err(Error::NotAligned);
         }
 
-        if end_address % (Self::SECTOR_SIZE) != 0 {
+        if end_address % (SECTOR_SIZE) != 0 {
             return Err(Error::NotAligned);
         }
 
@@ -210,8 +220,8 @@ where
             return Err(Error::OutOfBounds);
         }
 
-        let start_sector = start_address / Self::SECTOR_SIZE;
-        let end_sector = end_address / Self::SECTOR_SIZE;
+        let start_sector = start_address / SECTOR_SIZE;
+        let end_sector = end_address / SECTOR_SIZE;
 
         for sector in start_sector..end_sector {
             self.erase_sector(sector).unwrap();
@@ -227,11 +237,11 @@ where
     pub fn erase_sector(&mut self, index: u32) -> Result<(), Error<S, P>> {
         self.enable_write()?;
 
-        if index >= Self::N_SECTORS {
+        if index >= N_SECTORS {
             return Err(Error::OutOfBounds);
         }
 
-        let address: u32 = index * Self::SECTOR_SIZE;
+        let address: u32 = index * SECTOR_SIZE;
 
         let address_bytes = address.to_be_bytes();
         let command_buf: [u8; 4] = [
@@ -255,11 +265,11 @@ where
     pub fn erase_block_32k(&mut self, index: u32) -> Result<(), Error<S, P>> {
         self.enable_write()?;
 
-        if index >= Self::N_BLOCKS_32K {
+        if index >= N_BLOCKS_32K {
             return Err(Error::OutOfBounds);
         }
 
-        let address: u32 = index * Self::BLOCK_32K_SIZE;
+        let address: u32 = index * BLOCK_32K_SIZE;
 
         let address_bytes = address.to_be_bytes();
         let command_buf: [u8; 4] = [
@@ -283,11 +293,11 @@ where
     pub fn erase_block_64k(&mut self, index: u32) -> Result<(), Error<S, P>> {
         self.enable_write()?;
 
-        if index >= Self::N_BLOCKS_64K {
+        if index >= N_BLOCKS_64K {
             return Err(Error::OutOfBounds);
         }
 
-        let address: u32 = index * Self::BLOCK_64K_SIZE;
+        let address: u32 = index * BLOCK_64K_SIZE;
 
         let address_bytes = address.to_be_bytes();
         let command_buf: [u8; 4] = [

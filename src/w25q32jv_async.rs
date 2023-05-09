@@ -33,7 +33,7 @@ where
 {
     const WRITE_SIZE: usize = 1;
 
-    const ERASE_SIZE: usize = Self::SECTOR_SIZE as usize;
+    const ERASE_SIZE: usize = SECTOR_SIZE as usize;
 
     async fn erase(&mut self, from: u32, to: u32) -> Result<(), Self::Error> {
         self.erase_range_async(from, to).await
@@ -100,7 +100,7 @@ where
     /// * `address` - Address where the first byte of the buf will be read.
     /// * `buf` - Slice that is going to be filled with the read bytes.
     pub async fn read_async(&mut self, address: u32, buf: &mut [u8]) -> Result<(), Error<S, P>> {
-        if address + buf.len() as u32 >= Self::N_PAGES * Self::PAGE_SIZE {
+        if address + buf.len() as u32 > CAPACITY {
             return Err(Error::OutOfBounds);
         }
 
@@ -140,14 +140,18 @@ where
     /// # Arguments
     /// * `address` - Address where the first byte of the buf will be written.
     /// * `buf` - Slice of bytes that will be written.
-    pub async fn write_async(&mut self, mut address: u32, mut buf: &[u8]) -> Result<(), Error<S, P>> {
-        if address + buf.len() as u32 > Self::N_PAGES * Self::PAGE_SIZE {
+    pub async fn write_async(
+        &mut self,
+        mut address: u32,
+        mut buf: &[u8],
+    ) -> Result<(), Error<S, P>> {
+        if address + buf.len() as u32 > CAPACITY {
             return Err(Error::OutOfBounds);
         }
 
         // Write first chunk, taking into account that given addres might
         // point to a location that is not on a page boundary,
-        let chunk_len = (Self::PAGE_SIZE - (address & 0x000000FF)) as usize;
+        let chunk_len = (PAGE_SIZE - (address & 0x000000FF)) as usize;
         let chunk_len = chunk_len.min(buf.len());
         self.write_page_async(address, &buf[..chunk_len]).await?;
 
@@ -156,7 +160,7 @@ where
         loop {
             buf = &buf[chunk_len..];
             address += chunk_len as u32;
-            chunk_len = buf.len().min(Self::PAGE_SIZE as usize);
+            chunk_len = buf.len().min(PAGE_SIZE as usize);
             if chunk_len == 0 {
                 break;
             }
@@ -169,7 +173,7 @@ where
     /// Execute a write on a single page
     async fn write_page_async(&mut self, address: u32, buf: &[u8]) -> Result<(), Error<S, P>> {
         // We don't support wrapping writes. They're scary
-        if (address & 0x000000FF) + buf.len() as u32 > Self::PAGE_SIZE {
+        if (address & 0x000000FF) + buf.len() as u32 > PAGE_SIZE {
             return Err(Error::OutOfBounds);
         }
 
@@ -214,11 +218,11 @@ where
     ) -> Result<(), Error<S, P>> {
         self.enable_write_async().await?;
 
-        if start_address % (Self::SECTOR_SIZE) != 0 {
+        if start_address % (SECTOR_SIZE) != 0 {
             return Err(Error::NotAligned);
         }
 
-        if end_address % (Self::SECTOR_SIZE) != 0 {
+        if end_address % (SECTOR_SIZE) != 0 {
             return Err(Error::NotAligned);
         }
 
@@ -226,8 +230,8 @@ where
             return Err(Error::OutOfBounds);
         }
 
-        let start_sector = start_address / Self::SECTOR_SIZE;
-        let end_sector = end_address / Self::SECTOR_SIZE;
+        let start_sector = start_address / SECTOR_SIZE;
+        let end_sector = end_address / SECTOR_SIZE;
 
         for sector in start_sector..end_sector {
             self.erase_sector_async(sector).await.unwrap();
@@ -243,11 +247,11 @@ where
     pub async fn erase_sector_async(&mut self, index: u32) -> Result<(), Error<S, P>> {
         self.enable_write_async().await?;
 
-        if index >= Self::N_SECTORS {
+        if index >= N_SECTORS {
             return Err(Error::OutOfBounds);
         }
 
-        let address: u32 = index * Self::SECTOR_SIZE;
+        let address: u32 = index * SECTOR_SIZE;
 
         let address_bytes = address.to_be_bytes();
         let command_buf: [u8; 4] = [
@@ -274,11 +278,11 @@ where
     pub async fn erase_block_32k_async(&mut self, index: u32) -> Result<(), Error<S, P>> {
         self.enable_write_async().await?;
 
-        if index >= Self::N_BLOCKS_32K {
+        if index >= N_BLOCKS_32K {
             return Err(Error::OutOfBounds);
         }
 
-        let address: u32 = index * Self::BLOCK_32K_SIZE;
+        let address: u32 = index * BLOCK_32K_SIZE;
 
         let address_bytes = address.to_be_bytes();
         let command_buf: [u8; 4] = [
@@ -305,11 +309,11 @@ where
     pub async fn erase_block_64k_async(&mut self, index: u32) -> Result<(), Error<S, P>> {
         self.enable_write_async().await?;
 
-        if index >= Self::N_BLOCKS_64K {
+        if index >= N_BLOCKS_64K {
             return Err(Error::OutOfBounds);
         }
 
-        let address: u32 = index * Self::BLOCK_64K_SIZE;
+        let address: u32 = index * BLOCK_64K_SIZE;
 
         let address_bytes = address.to_be_bytes();
         let command_buf: [u8; 4] = [

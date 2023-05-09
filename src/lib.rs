@@ -3,13 +3,24 @@
 #![allow(incomplete_features)]
 #![cfg_attr(feature = "async", feature(async_fn_in_trait))]
 
+use core::fmt::Debug;
 use embedded_hal::digital::OutputPin;
 use embedded_storage::nor_flash::{ErrorType, NorFlashError, NorFlashErrorKind};
-use core::fmt::Debug;
 
 mod w25q32jv;
 #[cfg(feature = "async")]
 mod w25q32jv_async;
+
+pub const PAGE_SIZE: u32 = 256;
+pub const N_PAGES: u32 = 16384;
+pub const CAPACITY: u32 = PAGE_SIZE * N_PAGES;
+
+pub const SECTOR_SIZE: u32 = PAGE_SIZE * 16;
+pub const N_SECTORS: u32 = N_PAGES / 16;
+pub const BLOCK_32K_SIZE: u32 = SECTOR_SIZE * 8;
+pub const N_BLOCKS_32K: u32 = N_SECTORS / 8;
+pub const BLOCK_64K_SIZE: u32 = BLOCK_32K_SIZE * 2;
+pub const N_BLOCKS_64K: u32 = N_BLOCKS_32K / 2;
 
 /// Low level driver for the w25q32jv flash memory chip.
 pub struct W25q32jv<SPI, HOLD, WP> {
@@ -19,18 +30,9 @@ pub struct W25q32jv<SPI, HOLD, WP> {
 }
 
 impl<SPI, HOLD, WP> W25q32jv<SPI, HOLD, WP> {
-    const PAGE_SIZE: u32 = 256;
-    const N_PAGES: u32 = 16384;
-    const SECTOR_SIZE: u32 = Self::PAGE_SIZE * 16;
-    const N_SECTORS: u32 = Self::N_PAGES / 16;
-    const BLOCK_32K_SIZE: u32 = Self::SECTOR_SIZE * 8;
-    const N_BLOCKS_32K: u32 = Self::N_SECTORS / 8;
-    const BLOCK_64K_SIZE: u32 = Self::BLOCK_32K_SIZE * 2;
-    const N_BLOCKS_64K: u32 = Self::N_BLOCKS_32K / 2;
-
     /// Get the capacity of the flash chip in bytes.
     pub fn capacity() -> usize {
-        (Self::N_PAGES * Self::PAGE_SIZE) as usize
+        CAPACITY as usize
     }
 }
 
