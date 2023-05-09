@@ -1,18 +1,27 @@
-#![no_main]
 #![no_std]
 #![deny(unsafe_code)]
-#![feature(type_alias_impl_trait)]
-#![feature(impl_trait_in_assoc_type)]
+#![feature(async_fn_in_trait)]
 
-mod w25q32jv;
+pub mod w25q32jv;
+#[cfg(feature = "asynch")]
 pub mod w25q32jv_async;
 
 /// Low level driver for the w25q32jv flash memory chip.
-pub struct W25q32jv<SPI, CS, HOLD, WP> {
+pub struct W25q32jv<SPI, HOLD, WP> {
     spi: SPI,
-    cs: CS,
     hold: HOLD,
     wp: WP,
+}
+
+impl<SPI, HOLD, WP> W25q32jv<SPI, HOLD, WP> {
+    const PAGE_SIZE: u32 = 256;
+    const N_PAGES: u32 = 16384;
+    const SECTOR_SIZE: u32 = Self::PAGE_SIZE * 16;
+    const N_SECTORS: u32 = Self::N_PAGES / 16;
+    const BLOCK_32K_SIZE: u32 = Self::SECTOR_SIZE * 8;
+    const N_BLOCKS_32K: u32 = Self::N_SECTORS / 8;
+    const BLOCK_64K_SIZE: u32 = Self::BLOCK_32K_SIZE * 2;
+    const N_BLOCKS_64K: u32 = Self::N_BLOCKS_32K / 2;
 }
 
 /// Custom error type for the various errors that can be thrown by W25q32jv.
@@ -37,3 +46,7 @@ enum Command {
     Block64Erase = 0xD8,
     ChipErase = 0xC7,
 }
+
+// pub trait Spi {
+
+// }

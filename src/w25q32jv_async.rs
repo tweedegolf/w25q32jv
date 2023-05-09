@@ -1,11 +1,10 @@
 use super::{Command, Error};
 use core::fmt::Debug;
-use core::future::Future;
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal_async::spi::{Operation, SpiDevice};
 use embedded_storage;
 use embedded_storage::nor_flash::ErrorType;
-use embedded_storage_async::nor_flash::{AsyncNorFlash, AsyncReadNorFlash};
+use embedded_storage_async::nor_flash::{NorFlash, ReadNorFlash};
 
 /// Async implementation of the low level driver for the w25q32jv flash memory chip.
 pub struct W25q32jv<SPI, HOLD, WP> {
@@ -25,7 +24,7 @@ where
     type Error = Error<S, P>;
 }
 
-impl<SPI, S, P, HOLD, WP> AsyncReadNorFlash for W25q32jv<SPI, HOLD, WP>
+impl<SPI, S, P, HOLD, WP> ReadNorFlash for W25q32jv<SPI, HOLD, WP>
 where
     SPI: SpiDevice<Error = S>,
     HOLD: OutputPin<Error = P>,
@@ -35,12 +34,8 @@ where
 {
     const READ_SIZE: usize = 1;
 
-    type ReadFuture<'a> = impl Future<Output = Result<(), Self::Error>> + 'a
-    where
-		Self: 'a;
-
-    fn read<'a>(&'a mut self, offset: u32, bytes: &'a mut [u8]) -> Self::ReadFuture<'a> {
-        async move { self.read(offset, bytes).await.and(Ok(())) }
+    async fn read<'a>(&'a mut self, offset: u32, bytes: &'a mut [u8]) -> Result<(), Self::Error> {
+        self.read(offset, bytes).await.and(Ok(()))
     }
 
     fn capacity(&self) -> usize {
@@ -48,7 +43,7 @@ where
     }
 }
 
-impl<SPI, S, P, HOLD, WP> AsyncNorFlash for W25q32jv<SPI, HOLD, WP>
+impl<SPI, S, P, HOLD, WP> NorFlash for W25q32jv<SPI, HOLD, WP>
 where
     SPI: SpiDevice<Error = S>,
     HOLD: OutputPin<Error = P>,
@@ -60,20 +55,12 @@ where
 
     const ERASE_SIZE: usize = Self::SECTOR_SIZE as usize;
 
-    type EraseFuture<'a> = impl Future<Output = Result<(), Self::Error>> + 'a
-	where
-		Self: 'a;
-
-    fn erase(&mut self, from: u32, to: u32) -> Self::EraseFuture<'_> {
-        async move { self.erase_range(from, to).await.and(Ok(())) }
+    async fn erase(&mut self, from: u32, to: u32) -> Result<(), Self::Error> {
+        self.erase_range(from, to).await.and(Ok(()))
     }
 
-    type WriteFuture<'a> = impl Future<Output = Result<(), Self::Error>> + 'a
-	where
-		Self: 'a;
-
-    fn write<'a>(&'a mut self, offset: u32, bytes: &'a [u8]) -> Self::WriteFuture<'a> {
-        async move { self.write(offset, bytes).await.and(Ok(())) }
+    async fn write<'a>(&'a mut self, offset: u32, bytes: &'a [u8]) -> Result<(), Self::Error> {
+        self.write(offset, bytes).await.and(Ok(()))
     }
 }
 
@@ -85,15 +72,6 @@ where
     S: Debug,
     P: Debug,
 {
-    const PAGE_SIZE: u32 = 256;
-    const N_PAGES: u32 = 16384;
-    const SECTOR_SIZE: u32 = Self::PAGE_SIZE * 16;
-    const N_SECTORS: u32 = Self::N_PAGES / 16;
-    const BLOCK_32K_SIZE: u32 = Self::SECTOR_SIZE * 8;
-    const N_BLOCKS_32K: u32 = Self::N_SECTORS / 8;
-    const BLOCK_64K_SIZE: u32 = Self::BLOCK_32K_SIZE * 2;
-    const N_BLOCKS_64K: u32 = Self::N_BLOCKS_32K / 2;
-
     pub async fn new(spi: SPI, hold: HOLD, wp: WP) -> Result<Self, Error<S, P>> {
         let mut flash = W25q32jv { spi, hold, wp };
 

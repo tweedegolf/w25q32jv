@@ -84,15 +84,6 @@ where
     S: Debug,
     P: Debug,
 {
-    const PAGE_SIZE: u32 = 256;
-    const N_PAGES: u32 = 16384;
-    const SECTOR_SIZE: u32 = Self::PAGE_SIZE * 16;
-    const N_SECTORS: u32 = Self::N_PAGES / 16;
-    const BLOCK_32K_SIZE: u32 = Self::SECTOR_SIZE * 8;
-    const N_BLOCKS_32K: u32 = Self::N_SECTORS / 8;
-    const BLOCK_64K_SIZE: u32 = Self::BLOCK_32K_SIZE * 2;
-    const N_BLOCKS_64K: u32 = Self::N_BLOCKS_32K / 2;
-
     pub fn new(spi: SPI, cs: CS, hold: HOLD, wp: WP) -> Result<Self, Error<S, P>> {
         let mut flash = W25q32jv { spi, cs, hold, wp };
 

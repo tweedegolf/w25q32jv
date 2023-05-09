@@ -352,7 +352,7 @@ dependencies = [
  "embedded-hal 1.0.0-alpha.10",
  "embedded-hal-async",
  "embedded-storage",
- "embedded-storage-async 0.4.0",
+ "embedded-storage-async",
  "nb 1.1.0",
 ]
 
@@ -417,7 +417,7 @@ dependencies = [
  "embedded-hal-async",
  "embedded-io",
  "embedded-storage",
- "embedded-storage-async 0.4.0",
+ "embedded-storage-async",
  "fixed",
  "futures",
  "nrf9160-pac 0.12.2",
@@ -507,15 +507,6 @@ name = "embedded-storage"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "156d7a2fdd98ebbf9ae579cbceca3058cff946e13f8e17b90e3511db0508c723"
-
-[[package]]
-name = "embedded-storage-async"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ff04af74e47e9bb4315bd7aa2b01f3d1b05f33c03a6c4e9c3b20e9ce9cd8d79"
-dependencies = [
- "embedded-storage",
-]
 
 [[package]]
 name = "embedded-storage-async"
@@ -1222,7 +1213,7 @@ dependencies = [
  "embedded-hal 0.2.7",
  "embedded-hal-async",
  "embedded-storage",
- "embedded-storage-async 0.3.0",
+ "embedded-storage-async",
  "nrf9160-hal",
  "nrf9160-rust-starter",
  "panic-probe",
