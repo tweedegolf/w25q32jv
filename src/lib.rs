@@ -1,12 +1,14 @@
 #![no_std]
 #![deny(unsafe_code)]
 #![allow(incomplete_features)]
-#![cfg_attr(feature = "asynch", feature(async_fn_in_trait))]
+#![cfg_attr(feature = "async", feature(async_fn_in_trait))]
 
+use embedded_hal::digital::OutputPin;
 use embedded_storage::nor_flash::{ErrorType, NorFlashError, NorFlashErrorKind};
+use core::fmt::Debug;
 
 mod w25q32jv;
-#[cfg(feature = "asynch")]
+#[cfg(feature = "async")]
 mod w25q32jv_async;
 
 /// Low level driver for the w25q32jv flash memory chip.
@@ -32,25 +34,46 @@ impl<SPI, HOLD, WP> W25q32jv<SPI, HOLD, WP> {
     }
 }
 
-impl<SPI, HOLD, WP> ErrorType for W25q32jv<SPI, HOLD, WP> {
-    type Error = Error;
+impl<SPI, S: Debug, P: Debug, HOLD, WP> W25q32jv<SPI, HOLD, WP>
+where
+    SPI: embedded_hal::spi::ErrorType<Error = S>,
+    HOLD: OutputPin<Error = P>,
+    WP: OutputPin<Error = P>,
+{
+    pub fn new(spi: SPI, hold: HOLD, wp: WP) -> Result<Self, Error<S, P>> {
+        let mut flash = W25q32jv { spi, hold, wp };
+
+        flash.hold.set_high().map_err(Error::PinError)?;
+        flash.wp.set_high().map_err(Error::PinError)?;
+
+        Ok(flash)
+    }
+}
+
+impl<SPI, S: Debug, P: Debug, HOLD, WP> ErrorType for W25q32jv<SPI, HOLD, WP>
+where
+    SPI: embedded_hal::spi::ErrorType<Error = S>,
+    HOLD: OutputPin<Error = P>,
+    WP: OutputPin<Error = P>,
+{
+    type Error = Error<S, P>;
 }
 
 /// Custom error type for the various errors that can be thrown by W25q32jv.
 /// Can be converted into a NorFlashError.
 #[derive(Debug)]
-pub enum Error {
-    SpiError,
-    PinError,
+pub enum Error<S: Debug, P: Debug> {
+    SpiError(S),
+    PinError(P),
     NotAligned,
     OutOfBounds,
 }
 
-impl NorFlashError for Error {
+impl<S: Debug, P: Debug> NorFlashError for Error<S, P> {
     fn kind(&self) -> NorFlashErrorKind {
         match self {
-            Error::SpiError => NorFlashErrorKind::Other,
-            Error::PinError => NorFlashErrorKind::Other,
+            Error::SpiError(_) => NorFlashErrorKind::Other,
+            Error::PinError(_) => NorFlashErrorKind::Other,
             Error::NotAligned => NorFlashErrorKind::NotAligned,
             Error::OutOfBounds => NorFlashErrorKind::OutOfBounds,
         }
