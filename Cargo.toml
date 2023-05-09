@@ -2,6 +2,12 @@
 name = "w25q32jv"
 version = "0.1.0"
 edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "An embedded-hal driver for the W25Q32JV"
+homepage = "https://github.com/tweedegolf/w25q32jv"
+repository = "https://github.com/tweedegolf/w25q32jv"
+readme = "README.md"
+keywords = ["no_std", "embedded", "flash", "w25q32jv"]
 
 [dependencies]
 embedded-hal = "1.0.0-alpha.10"
