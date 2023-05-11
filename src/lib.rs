@@ -84,6 +84,7 @@ impl<S: Debug, P: Debug> NorFlashError for Error<S, P> {
 }
 
 /// Easily readable representation of the command bytes used by the flash chip.
+#[repr(u8)]
 enum Command {
     PageProgram = 0x02,
     ReadData = 0x03,
@@ -96,4 +97,14 @@ enum Command {
     ChipErase = 0xC7,
     EnableReset = 0x66,
     Reset = 0x99,
+}
+
+fn command_and_address(command: u8, address: u32) -> [u8; 4] {
+    [
+        command,
+        // MSB, BE
+        ((address & 0xFF0000) >> 16) as u8,
+        ((address & 0x00FF00) >> 8) as u8,
+        ((address & 0x0000FF) >> 0) as u8,
+    ]
 }

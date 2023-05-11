@@ -110,16 +110,11 @@ where
             return Err(Error::OutOfBounds);
         }
 
-        let address_bytes = address.to_be_bytes();
-        let command_buf: [u8; 4] = [
-            Command::ReadData as u8,
-            address_bytes[0],
-            address_bytes[1],
-            address_bytes[2],
-        ];
-
         self.spi
-            .transaction(&mut [Operation::Write(&command_buf), Operation::Read(buf)])
+            .transaction(&mut [
+                Operation::Write(&command_and_address(Command::ReadData as u8, address)),
+                Operation::Read(buf),
+            ])
             .map_err(Error::SpiError)?;
 
         Ok(())
@@ -129,9 +124,9 @@ where
     /// Writes and erases to the chip only have effect when this flag is true.
     /// Each write and erase clears the flag, requiring it to be set to true again for the next command.
     fn enable_write(&mut self) -> Result<(), Error<S, P>> {
-        let command_buf: [u8; 1] = [Command::WriteEnable as u8];
-
-        self.spi.write(&command_buf).map_err(Error::SpiError)?;
+        self.spi
+            .write(&[Command::WriteEnable as u8])
+            .map_err(Error::SpiError)?;
 
         Ok(())
     }
@@ -177,19 +172,11 @@ where
 
         self.enable_write()?;
 
-        let address_bytes = address.to_le_bytes();
-        let command_buf: [u8; 4] = [
-            Command::PageProgram as u8,
-            address_bytes[2],
-            address_bytes[1],
-            address_bytes[0],
-        ];
-
-        self.spi.write(&command_buf).map_err(Error::SpiError)?;
-        self.spi.write(buf).map_err(Error::SpiError)?;
-
         self.spi
-            .transaction(&mut [Operation::Write(&command_buf), Operation::Write(buf)])
+            .transaction(&mut [
+                Operation::Write(&command_and_address(Command::PageProgram as u8, address)),
+                Operation::Write(buf),
+            ])
             .map_err(Error::SpiError)?;
 
         while self.busy()? {}
@@ -243,15 +230,9 @@ where
 
         let address: u32 = index * SECTOR_SIZE;
 
-        let address_bytes = address.to_be_bytes();
-        let command_buf: [u8; 4] = [
-            Command::SectorErase as u8,
-            address_bytes[0],
-            address_bytes[1],
-            address_bytes[2],
-        ];
-
-        self.spi.write(&command_buf).map_err(Error::SpiError)?;
+        self.spi
+            .write(&command_and_address(Command::SectorErase as u8, address))
+            .map_err(Error::SpiError)?;
 
         while self.busy()? {}
 
@@ -271,15 +252,9 @@ where
 
         let address: u32 = index * BLOCK_32K_SIZE;
 
-        let address_bytes = address.to_be_bytes();
-        let command_buf: [u8; 4] = [
-            Command::Block32Erase as u8,
-            address_bytes[0],
-            address_bytes[1],
-            address_bytes[2],
-        ];
-
-        self.spi.write(&command_buf).map_err(Error::SpiError)?;
+        self.spi
+            .write(&command_and_address(Command::Block32Erase as u8, address))
+            .map_err(Error::SpiError)?;
 
         while self.busy()? {}
 
@@ -299,15 +274,9 @@ where
 
         let address: u32 = index * BLOCK_64K_SIZE;
 
-        let address_bytes = address.to_be_bytes();
-        let command_buf: [u8; 4] = [
-            Command::Block64Erase as u8,
-            address_bytes[0],
-            address_bytes[1],
-            address_bytes[2],
-        ];
-
-        self.spi.write(&command_buf).map_err(Error::SpiError)?;
+        self.spi
+            .write(&command_and_address(Command::Block64Erase as u8, address))
+            .map_err(Error::SpiError)?;
 
         while self.busy()? {}
 
@@ -319,9 +288,9 @@ where
     pub fn erase_chip(&mut self) -> Result<(), Error<S, P>> {
         self.enable_write()?;
 
-        let command_buf: [u8; 1] = [Command::ChipErase as u8];
-
-        self.spi.write(&command_buf).map_err(Error::SpiError)?;
+        self.spi
+            .write(&[Command::ChipErase as u8])
+            .map_err(Error::SpiError)?;
 
         while self.busy()? {}
 
