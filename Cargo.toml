@@ -30,7 +30,7 @@ defmt = ["dep:defmt"]
 cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
 cortex-m-rt = "0.7.3"
 embassy-executor = { version = "0.2.0", features = ["arch-cortex-m", "executor-thread", "nightly", "integrated-timers"] }
-embassy-nrf = { version = "0", features = ["nightly", "nrf9160-s", "unstable-pac", "time-driver-rtc1", "unstable-traits", "time", "gpiote"] }
+embassy-nrf = { version = "0", features = ["nightly", "nrf9160-s", "unstable-pac", "time-driver-rtc1", "unstable-traits", "time"] }
 
 [patch.crates-io]
 embassy-executor = { git = "https://github.com/embassy-rs/embassy.git", rev = "46227be" }
