@@ -10,7 +10,11 @@ It supports:
 - Blocking `embedded-storage`
 - Async `embedded-storage-async`
 
+To unlock the use of async, activate the `async` feature on the crate.
+
+Defmt is also supported through the `defmt` feature.
+
 ## Changelog
 
-### [0.1.0] - 2023-05-09
+### [0.1.0] - 2023-05-11
 - Initial release

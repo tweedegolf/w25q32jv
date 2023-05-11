@@ -8,6 +8,11 @@ homepage = "https://github.com/tweedegolf/w25q32jv"
 repository = "https://github.com/tweedegolf/w25q32jv"
 readme = "README.md"
 keywords = ["no_std", "embedded", "flash", "w25q32jv"]
+authors = [
+    "Janno Onink",
+    "Dion Dokter",
+    "Henk Dieter Oordt"
+]
 
 [dependencies]
 embedded-hal = "1.0.0-alpha.10"
@@ -17,7 +22,7 @@ embedded-storage-async = { version = "0.4.0", optional = true }
 defmt = { version = "0.3", optional = true }
 
 [features]
-default = ["async"]
+default = []
 async = ["dep:embedded-hal-async", "dep:embedded-storage-async"]
 defmt = ["dep:defmt"]
 
@@ -30,6 +35,10 @@ embassy-nrf = { version = "0", features = ["nightly", "nrf9160-s", "unstable-pac
 [patch.crates-io]
 embassy-executor = { git = "https://github.com/embassy-rs/embassy.git", rev = "46227be" }
 embassy-nrf = { git = "https://github.com/embassy-rs/embassy.git", rev = "46227be" }
+
+[[example]]
+name = "erase-write-read"
+required-features = ["async"]
 
 [profile.release]
 debug = true
