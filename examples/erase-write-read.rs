@@ -5,7 +5,7 @@
 use embassy_executor::Spawner;
 use embassy_nrf::gpio::{Level, Output, OutputDrive};
 use embassy_nrf::{bind_interrupts, peripherals::SERIAL2, spim};
-use embedded_hal_async::spi::ExclusiveDevice;
+use embedded_hal_bus::spi::ExclusiveDevice;
 use embedded_storage_async::nor_flash::{NorFlash, ReadNorFlash};
 use w25q32jv::W25q32jv;
 
@@ -26,7 +26,7 @@ async fn main(_spawner: Spawner) {
     let hold = Output::new(p.P0_20, Level::Low, OutputDrive::Standard);
     let wp = Output::new(p.P0_23, Level::Low, OutputDrive::Standard);
 
-    let ed = ExclusiveDevice::new(spim, cs);
+    let ed = ExclusiveDevice::new_no_delay(spim, cs);
 
     // Create the flash driver instance
     let mut flash = W25q32jv::new(ed, hold, wp).unwrap();
