@@ -4,7 +4,7 @@
 #![cfg_attr(feature = "async", feature(async_fn_in_trait))]
 
 use core::fmt::Debug;
-use embedded_hal::digital::OutputPin;
+use embedded_hal::digital::{OutputPin, PinState};
 use embedded_storage::nor_flash::{ErrorType, NorFlashError, NorFlashErrorKind};
 
 mod w25q32jv;
@@ -49,6 +49,28 @@ where
         flash.wp.set_high().map_err(Error::PinError)?;
 
         Ok(flash)
+    }
+
+    /// Set the hold pin state.
+    ///
+    /// The driver doesn't do anything with this pin. When using the chip, make sure the hold pin is not asserted.
+    /// By default this means the pin needs to be high (true).
+    ///
+    /// This function sets the pin directly and can cause the chip to not work.
+    pub fn set_hold(&mut self, value: PinState) -> Result<(), Error<S, P>> {
+        self.hold.set_state(value).map_err(Error::PinError)?;
+        Ok(())
+    }
+
+    /// Set the write protect pin state.
+    ///
+    /// The driver doesn't do anything with this pin. When using the chip, make sure the hold pin is not asserted.
+    /// By default this means the pin needs to be high (true).
+    ///
+    /// This function sets the pin directly and can cause the chip to not work.
+    pub fn set_wp(&mut self, value: PinState) -> Result<(), Error<S, P>> {
+        self.wp.set_state(value).map_err(Error::PinError)?;
+        Ok(())
     }
 }
 
