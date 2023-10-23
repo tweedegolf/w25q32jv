@@ -14,7 +14,16 @@ To unlock the use of async, activate the `async` feature on the crate.
 
 Defmt is also supported through the `defmt` feature.
 
+## TODO
+
+- Fast read support. So far there's only support for the normal read, so don't use a SPI speed of > 50Mhz
+
 ## Changelog
+
+### [0.3.0] - 2023-10-23
+
+- *BREAKING*: Error struct is now exhaustive and a variant was added
+- Write enable is now being checked
 
 ### [0.1.0] - 2023-05-11
 - Initial release

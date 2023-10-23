@@ -1,7 +1,5 @@
 #![no_std]
 #![deny(unsafe_code)]
-#![allow(incomplete_features)]
-#![cfg_attr(feature = "async", feature(async_fn_in_trait))]
 
 use core::fmt::Debug;
 use embedded_hal::digital::{OutputPin, PinState};
@@ -87,11 +85,13 @@ where
 /// Can be converted into a NorFlashError.
 #[derive(Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[non_exhaustive]
 pub enum Error<S: Debug, P: Debug> {
     SpiError(S),
     PinError(P),
     NotAligned,
     OutOfBounds,
+    WriteEnableFail,
 }
 
 impl<S: Debug, P: Debug> NorFlashError for Error<S, P> {
@@ -101,6 +101,7 @@ impl<S: Debug, P: Debug> NorFlashError for Error<S, P> {
             Error::PinError(_) => NorFlashErrorKind::Other,
             Error::NotAligned => NorFlashErrorKind::NotAligned,
             Error::OutOfBounds => NorFlashErrorKind::OutOfBounds,
+            Error::WriteEnableFail => NorFlashErrorKind::Other,
         }
     }
 }
