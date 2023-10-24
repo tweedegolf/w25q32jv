@@ -20,6 +20,10 @@ Defmt is also supported through the `defmt` feature.
 
 ## Changelog
 
+### [0.3.1] - 2023-10-24
+
+- Added readback-check feature that reads back the writes and the erases to check if they've succeeded ok
+
 ### [0.3.0] - 2023-10-23
 
 - *BREAKING*: Error struct is now exhaustive and a variant was added

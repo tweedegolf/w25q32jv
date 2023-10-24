@@ -193,6 +193,28 @@ where
 
         while self.busy()? {}
 
+        if cfg!(feature = "readback-check") {
+            self.readback_check(address, buf)?;
+        }
+
+        Ok(())
+    }
+
+    fn readback_check(&mut self, mut address: u32, data: &[u8]) -> Result<(), Error<S, P>> {
+        const CHUNK_SIZE: usize = 64;
+
+        let mut buf = [0; CHUNK_SIZE];
+
+        for chunk in data.chunks(CHUNK_SIZE) {
+            let buf = &mut buf[..chunk.len()];
+            self.read(address, buf)?;
+            address += CHUNK_SIZE as u32;
+
+            if buf != chunk {
+                return Err(Error::ReadbackFail);
+            }
+        }
+
         Ok(())
     }
 
@@ -205,8 +227,6 @@ where
     /// * `start_address` - Address of the first byte of the start of the range of sectors that need to be erased.
     /// * `end_address` - Address of the first byte of the end of the range of sectors that need to be erased.
     pub fn erase_range(&mut self, start_address: u32, end_address: u32) -> Result<(), Error<S, P>> {
-        self.enable_write()?;
-
         if start_address % (SECTOR_SIZE) != 0 {
             return Err(Error::NotAligned);
         }
@@ -234,11 +254,11 @@ where
     /// # Arguments
     /// * `index` - the index of the sector that needs to be erased. The address of the first byte of the sector is the provided index * SECTOR_SIZE.
     pub fn erase_sector(&mut self, index: u32) -> Result<(), Error<S, P>> {
-        self.enable_write()?;
-
         if index >= N_SECTORS {
             return Err(Error::OutOfBounds);
         }
+
+        self.enable_write()?;
 
         let address: u32 = index * SECTOR_SIZE;
 
@@ -248,6 +268,12 @@ where
 
         while self.busy()? {}
 
+        if cfg!(feature = "readback-check") {
+            for offset in (0..SECTOR_SIZE).step_by(64) {
+                self.readback_check(address + offset, &[0xFF; 64])?;
+            }
+        }
+
         Ok(())
     }
 
@@ -256,11 +282,11 @@ where
     /// # Arguments
     /// * `index` - the index of the block that needs to be erased. The address of the first byte of the block is the provided index * BLOCK_32K_SIZE.
     pub fn erase_block_32k(&mut self, index: u32) -> Result<(), Error<S, P>> {
-        self.enable_write()?;
-
         if index >= N_BLOCKS_32K {
             return Err(Error::OutOfBounds);
         }
+
+        self.enable_write()?;
 
         let address: u32 = index * BLOCK_32K_SIZE;
 
@@ -270,6 +296,12 @@ where
 
         while self.busy()? {}
 
+        if cfg!(feature = "readback-check") {
+            for offset in (0..BLOCK_32K_SIZE).step_by(64) {
+                self.readback_check(address + offset, &[0xFF; 64])?;
+            }
+        }
+
         Ok(())
     }
 
@@ -278,11 +310,11 @@ where
     /// # Arguments
     /// * `index` - the index of the block that needs to be erased. The address of the first byte of the block is the provided index * BLOCK_64K_SIZE.
     pub fn erase_block_64k(&mut self, index: u32) -> Result<(), Error<S, P>> {
-        self.enable_write()?;
-
         if index >= N_BLOCKS_64K {
             return Err(Error::OutOfBounds);
         }
+
+        self.enable_write()?;
 
         let address: u32 = index * BLOCK_64K_SIZE;
 
@@ -291,6 +323,12 @@ where
             .map_err(Error::SpiError)?;
 
         while self.busy()? {}
+
+        if cfg!(feature = "readback-check") {
+            for offset in (0..BLOCK_64K_SIZE).step_by(64) {
+                self.readback_check(address + offset, &[0xFF; 64])?;
+            }
+        }
 
         Ok(())
     }
@@ -305,6 +343,12 @@ where
             .map_err(Error::SpiError)?;
 
         while self.busy()? {}
+
+        if cfg!(feature = "readback-check") {
+            for address in (0..CAPACITY).step_by(64) {
+                self.readback_check(address, &[0xFF; 64])?;
+            }
+        }
 
         Ok(())
     }

@@ -92,16 +92,15 @@ pub enum Error<S: Debug, P: Debug> {
     NotAligned,
     OutOfBounds,
     WriteEnableFail,
+    ReadbackFail,
 }
 
 impl<S: Debug, P: Debug> NorFlashError for Error<S, P> {
     fn kind(&self) -> NorFlashErrorKind {
         match self {
-            Error::SpiError(_) => NorFlashErrorKind::Other,
-            Error::PinError(_) => NorFlashErrorKind::Other,
             Error::NotAligned => NorFlashErrorKind::NotAligned,
             Error::OutOfBounds => NorFlashErrorKind::OutOfBounds,
-            Error::WriteEnableFail => NorFlashErrorKind::Other,
+            _ => NorFlashErrorKind::Other,
         }
     }
 }
