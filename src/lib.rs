@@ -118,6 +118,8 @@ enum Command {
     Block64Erase = 0xD8,
     ChipErase = 0xC7,
     EnableReset = 0x66,
+    PowerDown = 0xB9,
+    ReleasePowerDown = 0xAB,
     Reset = 0x99,
 }
 
