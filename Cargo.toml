@@ -1,6 +1,6 @@
 [package]
 name = "w25q32jv"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "An embedded-hal driver for the W25Q32JV"

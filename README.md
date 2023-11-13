@@ -20,7 +20,9 @@ Defmt is also supported through the `defmt` feature.
 
 ## Changelog
 
-### [x.x.x] 
+### Unreleased
+
+### [0.3.2] - 2023-11-13 
 
 - Added functions to use the power down mode of the W25Q32JV.
 
