@@ -20,6 +20,10 @@ Defmt is also supported through the `defmt` feature.
 
 ## Changelog
 
+### [x.x.x] 
+
+- Added functions to use the power down mode of the W25Q32JV.
+
 ### [0.3.1] - 2023-10-24
 
 - Added readback-check feature that reads back the writes and the erases to check if they've succeeded ok

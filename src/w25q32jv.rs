@@ -353,8 +353,8 @@ where
         Ok(())
     }
 
-    /// Puts the chip into power down mode
-    /// While in the power-down state only the Release Power-down/Device ID (ABh) instruction, which restores the device to normal operation, will be recognized. All other instructions are ignored
+    /// Puts the chip into power down mode.
+    /// While in the power-down state, only the Release Power-down/Device ID (0xAB) instruction will be recognized. This instruction restores the device to normal operation. All other instructions are ignored.
     pub fn enable_power_down_mode(&mut self) -> Result<(), Error<S, P>> {
         self.spi
             .write(&[Command::PowerDown as u8])
@@ -363,8 +363,8 @@ where
         Ok(())
     }
 
-    /// Releases power down mode  
-    /// Restores operation from power down mode by reading the deviceID from the device
+    /// Releases the chip from power down mode.
+    /// Restores operation from power down mode by reading the deviceID from the device.
     pub fn disable_power_down_mode(&mut self) -> Result<(), Error<S, P>> {
         self.spi
             .write(&[Command::ReleasePowerDown as u8])
