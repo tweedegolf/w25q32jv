@@ -22,6 +22,10 @@ Defmt is also supported through the `defmt` feature.
 
 ### Unreleased
 
+### [0.4.0] - 2024-01-10
+
+- Update to embedded-hal 1.0
+
 ### [0.3.2] - 2023-11-13 
 
 - Added functions to use the power down mode of the W25Q32JV.
