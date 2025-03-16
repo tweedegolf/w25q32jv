@@ -2,7 +2,7 @@ use super::*;
 use core::fmt::Debug;
 use embedded_hal::digital::OutputPin;
 use embedded_hal_async::spi::{Operation, SpiDevice};
-use embedded_storage_async::nor_flash::{NorFlash, ReadNorFlash};
+use embedded_storage_async::nor_flash::{MultiwriteNorFlash, NorFlash, ReadNorFlash};
 
 impl<SPI, S: Debug, P: Debug, HOLD, WP> ReadNorFlash for W25q32jv<SPI, HOLD, WP>
 where
@@ -42,6 +42,16 @@ where
     async fn write(&mut self, offset: u32, bytes: &[u8]) -> Result<(), Self::Error> {
         self.write_async(offset, bytes).await
     }
+}
+
+impl<SPI, S: Debug, P: Debug, HOLD, WP> MultiwriteNorFlash for W25q32jv<SPI, HOLD, WP>
+where
+    SPI: SpiDevice<Error = S>,
+    HOLD: OutputPin<Error = P>,
+    WP: OutputPin<Error = P>,
+    S: Debug,
+    P: Debug,
+{
 }
 
 impl<SPI, S: Debug, P: Debug, HOLD, WP> W25q32jv<SPI, HOLD, WP>
