@@ -2,7 +2,7 @@
 
 [![crates.io](https://img.shields.io/crates/v/w25q32jv.svg)](https://crates.io/crates/w25q32jv) [![Documentation](https://docs.rs/w25q32jv/badge.svg)](https://docs.rs/w25q32jv)
 
-This is a generic driver for the W25Q32JV flash chip from Winbond.
+This is a generic driver for the W25Q32JV and W25Q128FV flash chip from Winbond. It probably also works with other similar variants.
 
 It supports:
 - Blocking SPI using `embedded-hal 1.0`
@@ -11,6 +11,7 @@ It supports:
 - Async `embedded-storage-async`
 
 To unlock the use of async, activate the `async` feature on the crate.
+Default is W25Q32(32 M-bit), activate `+megabits128` to support W25Q128(128 M-bit).
 
 Defmt is also supported through the `defmt` feature.
 

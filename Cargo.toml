@@ -26,6 +26,7 @@ default = ["readback-check", "async"]
 async = ["dep:embedded-hal-async", "dep:embedded-storage-async"]
 defmt = ["dep:defmt"]
 readback-check = []
+megabits128 = []
 
 [dev-dependencies]
 cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
