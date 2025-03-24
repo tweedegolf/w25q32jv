@@ -40,7 +40,7 @@ where
     }
 
     fn write(&mut self, offset: u32, bytes: &[u8]) -> Result<(), Error<S, P>> {
-        self.write(offset, bytes)
+        self.write_blocking(offset, bytes)
     }
 }
 
@@ -149,7 +149,7 @@ where
     /// # Arguments
     /// * `address` - Address where the first byte of the buf will be written.
     /// * `buf` - Slice of bytes that will be written.
-    pub fn write(&mut self, mut address: u32, mut buf: &[u8]) -> Result<(), Error<S, P>> {
+    pub fn write_blocking(&mut self, mut address: u32, mut buf: &[u8]) -> Result<(), Error<S, P>> {
         if address + buf.len() as u32 > CAPACITY {
             return Err(Error::OutOfBounds);
         }
