@@ -23,6 +23,12 @@ Defmt is also supported through the `defmt` feature.
 
 ### Unreleased
 
+### [0.5.0] - 2025-03-27
+
+- Rename write function so that it does not clobber the trait methods
+- Add a feature flag to support 128M-bit variants
+- Add marker trait for Multiwrite to ASYNC API
+
 ### [0.4.0] - 2024-01-10
 
 - Update to embedded-hal 1.0
