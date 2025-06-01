@@ -11,7 +11,7 @@ It supports:
 - Async `embedded-storage-async`
 
 To unlock the use of async, activate the `async` feature on the crate.
-Default is W25Q32(32 M-bit), activate `+megabits128` to support W25Q128(128 M-bit).
+Default is W25Q32(32 M-bit), activate `+megabits64` to support W25Q64(64 M-bit), or `+megabits128` to support W25Q128(128 M-bit).
 
 Defmt is also supported through the `defmt` feature.
 

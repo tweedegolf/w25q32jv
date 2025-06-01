@@ -11,11 +11,15 @@ mod w25q32jv_async;
 
 pub const PAGE_SIZE: u32 = 256;
 
-#[cfg(not(feature = "megabits128"))]
-pub const N_PAGES: u32 = 16384;
-
-#[cfg(feature = "megabits128")]
-pub const N_PAGES: u32 = 65536;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "megabits128")] {
+        pub const N_PAGES: u32 = 65536;
+    } else if #[cfg(feature = "megabits64")] {
+        pub const N_PAGES: u32 = 32768;
+    } else {
+        pub const N_PAGES: u32 = 16384;
+    }
+}
 
 pub const CAPACITY: u32 = PAGE_SIZE * N_PAGES;
 
