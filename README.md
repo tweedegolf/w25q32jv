@@ -23,6 +23,10 @@ Defmt is also supported through the `defmt` feature.
 
 ### Unreleased
 
+### [0.5.1] - 2025-06-01
+
+- Add a feature flag to support 64M-bit variants
+
 ### [0.5.0] - 2025-03-27
 
 - Rename write function so that it does not clobber the trait methods
